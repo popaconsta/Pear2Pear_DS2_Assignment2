@@ -22,8 +22,8 @@ public class EdgeStyle extends DefaultEdgeStyleOGL2D{
 			return Color.ORANGE;
 		} else if((source.getState() == Participant.ESTABLISHED && source.getCurrentPeer().equals(target))
 				|| (target.getState() == Participant.ESTABLISHED && target.getCurrentPeer().equals(source))
-				|| (source.getState() == Participant.EXCHANGING_NEWS && source.getCurrentPeer().equals(target))
-				|| (target.getState() == Participant.EXCHANGING_NEWS && target.getCurrentPeer().equals(source))) {
+				|| (source.getState() == Participant.NEWS_EXCHANGED && source.getCurrentPeer().equals(target))
+				|| (target.getState() == Participant.NEWS_EXCHANGED && target.getCurrentPeer().equals(source))) {
 
 			return Color.GREEN;
 		} else if((source.getState() == Participant.FINISHED && source.getCurrentPeer().equals(target))

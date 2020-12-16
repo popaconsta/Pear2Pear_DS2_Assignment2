@@ -29,7 +29,7 @@ import communication.Event;
 import communication.Handshake;
 
 /*
- * This class encapsulates the behavior of the participant.
+ * This class encapsulates the behavior of the participant.g
  */
 public class Participant {
 	
@@ -37,7 +37,7 @@ public class Participant {
 	public static final int SYN_SENT = 1;
 	public static final int SYN_RECEIVED = 2;
 	public static final int ESTABLISHED = 3;
-	public static final int EXCHANGING_NEWS = 4;
+	public static final int NEWS_EXCHANGED = 4;
 	public static final int FINISHED = 5;
 
 	TopologyManager topologyManager; //object containing useful methods for adding and removing participants
@@ -136,37 +136,46 @@ public class Participant {
 			timeout--;
 			if(establishConnection()) {
 				state = ESTABLISHED;
-				
+				System.out.println("Participant(" + label + "): established connection to " + currentPeer.getLabel());
 				Map<PublicKey, Integer> myFrontier = getFrontierByIds(getStoreIds());
 				currentPeer.onEstablished(myFrontier);
-				
 				handshakeSYNs.clear();
 				handshakeACKs.clear();
+				timeout = 2; //reset timeout
 			}
 		} else if(state == ESTABLISHED && peerFrontier != null) {
-			System.out.println("Participant(" + label + "): established connection to " + currentPeer.getLabel());
+			System.out.println("Participant(" + label + "): inspecting frontier from " + currentPeer.getLabel());
 			
 			for(Entry<PublicKey, Integer> entry : peerFrontier.entrySet()) {
 				PublicKey tempId = entry.getKey();
 				if(!store.containsKey(tempId)) {
 					addLogToStore(tempId);
-					frontier.put(tempId, null);
+					frontier.put(tempId, -1);
 				}
-				Map<PublicKey, List<Event>> news = getEventsSince(frontier);
-				currentPeer.onNewsExchange(news);
 			}
 			
-			state = EXCHANGING_NEWS;
-		} else if(state == EXCHANGING_NEWS && peerNews != null) {
-			System.out.println("Participant(" + label + "): exchanging news (for" + peerNews.size() + "participant(s))"
-					+ "with " + currentPeer.getLabel());
+			Map<PublicKey, List<Event>> news = getEventsSince(peerFrontier);
+			currentPeer.onNewsExchange(news);
+			
+			System.out.println("Participant(" + label + "): exchanging news from "
+					+ news.size() + "partecipant(s) with " + currentPeer.getLabel());
+			
+			state = NEWS_EXCHANGED;
+		} else if(state == NEWS_EXCHANGED && peerNews != null) {
+			System.out.println("Participant(" + label + "): closing connection to " 
+					+ currentPeer.getLabel() + " and applying updates from " + peerNews.size() + " participants.");
 			updateStore(peerNews);
 			
-			peerFrontier = null;
-			peerNews = null;
 			state = FINISHED;
 		} else if(state == FINISHED) {
-			System.out.println("Participant(" + label + "): finished, closing connection to " + currentPeer.getLabel());
+			peerFrontier = null;
+			peerNews = null;
+			
+			System.out.println("Connection closed, current status: store = " + store.size() );
+			for(PublicKey tempId : store.keySet()) {
+				System.out.println(getLogById(tempId).size());
+			}
+			
 			//remove link with current peer
 			net.removeEdge(net.getEdge(this, currentPeer));
 			state = AVAILABLE;
@@ -261,7 +270,7 @@ public class Participant {
 	 * extend the log with the subset of compatible events previously created remotely
 	 */
 	private List<Event> updateLog(List<Event> news) {
-		if(news.size() <= 0)
+		if(news.size() == 0)
 			return null;
 		
 	    List<Event> log = getLogById(news.get(0).getId());
@@ -270,14 +279,21 @@ public class Participant {
 	    	lastIndex = lastIndex == null ? -1 : lastIndex;
 	    	Integer previous = lastIndex == -1 ? 0 : log.get(lastIndex).hashCode();
 	    	
-	    	if(e.getIndex() == lastIndex + 1
-	    			&& previous == e.getPrevious()
+	    	System.out.println("last " + lastIndex + "idx " 
+	    	+ e.getIndex() + " prev " + e.getPrevious() + " prv " + previous + " " + e.isSignatureVerified());
+	    	System.out.println((e.getIndex().equals(lastIndex + 1)) 
+	    			+ "\n" + (previous.equals(e.getPrevious()))
+	    			+ "\n" + (e.isSignatureVerified())
+	    			+ "\n------------------------------------");
+	    	
+	    	if(e.getIndex().equals(lastIndex + 1)
+	    			&& previous.equals(e.getPrevious())
 	    			&& e.isSignatureVerified()) {
 	    		System.out.println("Participant(" + label + "): applying update "
-	    				+ "#" + e.getIndex() + " by " + e.getId().toString());
+	    				+ "#" + e.getIndex());
 				
 	    		log.add(e);
-	    		frontier.put(e.getId(), lastIndex + 1);
+	    		frontier.put(e.getId(), e.getIndex());
 	    	}
 	    }
 	    
@@ -367,6 +383,8 @@ public class Participant {
 		for(Entry<PublicKey, Integer> entry : frontier.entrySet()) {
 			PublicKey tempId = entry.getKey();
 			Integer tempSince = entry.getValue();
+			if(tempId.equals(id))
+				System.out.println(label + " temp since " + tempSince);
 			List<Event> log = getLogById(tempId);
 			List<Event> eventsById = new ArrayList<>();
 			for(Event e : log) {
@@ -374,6 +392,7 @@ public class Participant {
 					eventsById.add(e);
 				}
 			}
+			System.out.println("events by id size" + eventsById.size());
 			events.put(tempId, eventsById);
 		}
 		
@@ -384,12 +403,12 @@ public class Participant {
 	 * update the logs in store with events
 	 */
 	private void updateStore(Map<PublicKey, List<Event>> news) {
-		System.out.println("Participant(" + label + "): updating store with news for" 
+		System.out.println("Participant(" + label + "): updating store with news for " 
 				+ news.size() + " participant(s)");
 		
-		for(Entry<PublicKey, List<Event>> entry : news.entrySet()) {
-			PublicKey tempId = entry.getKey();
-			List<Event> newsById = entry.getValue(); //new events
+		for(PublicKey tempId : news.keySet()) {
+			System.out.println("news by id size" + news.get(tempId).size());
+			List<Event> newsById = news.get(tempId); //new events
 			//List<Event> log = get(tempId); //target log for append operations
 			updateLog(newsById);
 		}

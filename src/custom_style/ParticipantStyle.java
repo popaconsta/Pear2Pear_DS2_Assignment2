@@ -19,7 +19,7 @@ public class ParticipantStyle extends DefaultStyleOGL2D{
 				|| ((Participant)o).getState() == Participant.SYN_SENT) 
 			return Color.ORANGE;
 		else if(((Participant)o).getState() == Participant.ESTABLISHED
-				|| ((Participant)o).getState() == Participant.EXCHANGING_NEWS)
+				|| ((Participant)o).getState() == Participant.NEWS_EXCHANGED)
 			return Color.GREEN;
 		else if(((Participant)o).getState() == Participant.FINISHED)
 			return Color.GRAY;
