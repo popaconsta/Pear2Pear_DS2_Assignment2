@@ -3,6 +3,7 @@ package communication;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.security.InvalidKeyException;
+import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
@@ -48,7 +49,7 @@ public class Event {
 		byte[] signature = null;
 	    
 	    try {
-	    	Signature sign = Signature.getInstance("RSA");
+	    	Signature sign = Signature.getInstance("NONEwithRSA");
 			sign.initSign(privateKey);
 			// Adding data to the signature
 		    sign.update(digest);
@@ -73,7 +74,15 @@ public class Event {
 			e.printStackTrace();
 		}
 
-		byte digest[] = eventStream.toByteArray();
+
+		MessageDigest md;
+		byte[] digest = null;
+		try {
+			md = MessageDigest.getInstance("SHA-256");
+			digest = md.digest(eventStream.toByteArray());
+		} catch (NoSuchAlgorithmException e) {
+			e.printStackTrace();
+		}
 		
 		return digest;
 	}
@@ -83,7 +92,7 @@ public class Event {
 	    boolean verified = false;
 		
 	    try {
-	    	Signature sign = Signature.getInstance("RSA");
+	    	Signature sign = Signature.getInstance("NONEwithRSA");
 			sign.initVerify(this.id);
 			// Adding data to the signature
 		    sign.update(digest);

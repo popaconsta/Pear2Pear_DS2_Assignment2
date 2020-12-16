@@ -7,7 +7,7 @@ public class Options {
 	
 	public static double PROBABILITY_OF_PERTURBATION;
 	
-	public static int MAX_RELAY_COUNT;
+	public static int MAX_PARTICIPANT_COUNT;
 	public static int MAX_PROPAGATION_DISTANCE;
 	public static String TOPOLOGY;
 	public static int ENVIRONMENT_DIMENSION;
@@ -26,7 +26,7 @@ public class Options {
 		Parameters params = RunEnvironment.getInstance().getParameters();
 		
 		PROBABILITY_OF_PERTURBATION = params.getDouble("PROBABILITY_OF_PERTURBATION");
-		MAX_RELAY_COUNT = params.getInteger("RELAY_COUNT");
+		MAX_PARTICIPANT_COUNT = params.getInteger("RELAY_COUNT");
 		MAX_PROPAGATION_DISTANCE = params.getInteger("MAX_PROPAGATION_DISTANCE");
 		TOPOLOGY = params.getString("TOPOLOGY");
 		ENVIRONMENT_DIMENSION = params.getInteger("ENVIRONMENT_DIMENSION");

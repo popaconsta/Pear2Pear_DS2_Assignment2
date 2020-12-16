@@ -17,62 +17,64 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 import javax.crypto.SealedObject;
-
-import communication.MulticastMessage;
-import communication.Event;
-import communication.UnicastMessage;
 import pear2Pear_DS2_Assignment2.TopologyManager;
 import repast.simphony.context.Context;
 import repast.simphony.engine.environment.RunEnvironment;
-import repast.simphony.engine.schedule.PriorityType;
 import repast.simphony.engine.schedule.ScheduledMethod;
-import repast.simphony.engine.watcher.Watch;
-import repast.simphony.engine.watcher.WatcherTriggerSchedule;
-import repast.simphony.parameter.Parameters;
-import repast.simphony.query.space.continuous.ContinuousWithin;
-import repast.simphony.query.space.grid.GridCell;
-import repast.simphony.query.space.grid.GridCellNgh;
 import repast.simphony.random.RandomHelper;
-import repast.simphony.space.SpatialMath;
-import repast.simphony.space.continuous.AbstractContinuousSpace;
-import repast.simphony.space.continuous.ContinuousSpace;
-import repast.simphony.space.continuous.NdPoint;
 import repast.simphony.space.graph.Network;
-import repast.simphony.space.graph.RepastEdge;
-import repast.simphony.space.grid.Grid;
-import repast.simphony.space.grid.GridPoint;
 import repast.simphony.util.ContextUtils;
-import repast.simphony.util.SimUtilities;
-import security.AsymmetricCryptography;
-import security.KeyManager;
-import Utils.DataCollector;
 import Utils.Options;
+import communication.Event;
+import communication.Handshake;
 
 /*
  * This class encapsulates the behavior of the participant.
  */
 public class Participant {
+	
+	public static final int AVAILABLE = 0;
+	public static final int SYN_SENT = 1;
+	public static final int SYN_RECEIVED = 2;
+	public static final int ESTABLISHED = 3;
+	public static final int EXCHANGING_NEWS = 4;
+	public static final int FINISHED = 5;
 
 	TopologyManager topologyManager; //object containing useful methods for adding and removing participants
+	private View view; //partial view of the other neighbour participants
 	private PublicKey id; //public key of the participant 
 	private PrivateKey privateKey; //private key of the participant 
-	private int clock; //Incrementally growing id for the emitted events
 	private Map<PublicKey, CopyOnWriteArrayList<Event>> store; //append-only store containing one log per participant
 	private Map<PublicKey, Integer> frontier; //reference of next expected event for each participant
+	private int clock; //Incrementally growing id for the emitted events
+	private int state;
+	
+	private List<Handshake> handshakeSYNs;
+	private List<Handshake> handshakeACKs;
+	private Participant currentPeer;
+	private Map<PublicKey, Integer> peerFrontier;
+	private Map<PublicKey, List<Event>> peerNews;
+	private String label;
 
 	//Relays generate perturbations with a given probability value
 	private double probabilityOfNewEvent;
+	private double probabilityOfHandshake = 0.15; //TODO:parametrize
+	private int timeout;
 	
 	
-	
-	
-	public Participant(TopologyManager topologyManager, PublicKey id, PrivateKey privateKey) {
+	public Participant(PublicKey id, PrivateKey privateKey, String label) {
 		super();
-		this.topologyManager = topologyManager;
 		this.id = id;
 		this.privateKey = privateKey;
+		this.label = label;
 		
+		view = new View(Options.MAX_PARTICIPANT_COUNT / 4); //each view contains a quarter of the participants
 		clock = 0;
+		timeout = 0;
+		state = AVAILABLE;
+		currentPeer = null;
+		handshakeSYNs = new ArrayList<>();
+		handshakeACKs = new ArrayList<>();
 		store = new HashMap<>();
 		frontier = new HashMap<>();
 		probabilityOfNewEvent = Options.PROBABILITY_OF_PERTURBATION;
@@ -86,7 +88,7 @@ public class Participant {
 	 * random generated number is smaller than "probabilityOfEvent"
 	 */
 	@ScheduledMethod(start=1, interval=1, priority=99) 
-	public void generatePerturbation() {
+	public void generateEvent() {
 		double coinToss = RandomHelper.nextDoubleFromTo(0, 1);
 		//Generate a broadcast with one fourth of the probability
 		if(coinToss <= probabilityOfNewEvent) { //propagate a value broadcast perturbation
@@ -97,13 +99,157 @@ public class Participant {
 	}
 	
 	
+	@ScheduledMethod(start=1, interval=1, priority=50) 
+	public void runOpenGossipProtocol() {
+		
+		int tickCount = (int) RunEnvironment.getInstance().getCurrentSchedule().getTickCount();
+		Context<Object> context = ContextUtils.getContext(this);
+		Network<Object> net = (Network<Object>) context.getProjection("handshake network");
+		
+		if(state == AVAILABLE) {
+			currentPeer = pickRandomSyn();
+			if(currentPeer != null) {
+				System.out.println("Participant(" + label + "): sending ACK for SYN sent by " + currentPeer.getLabel());
+				currentPeer.onHandshakeACK(new Handshake(tickCount, Handshake.SYN_ACK, this));
+				state = SYN_RECEIVED;
+				//add an edge between this partecipant and its peer
+				timeout = 2; //TODO: parametrize
+			} else {
+				double coinToss = RandomHelper.nextDoubleFromTo(0, 1);
+				if(coinToss <= probabilityOfHandshake) {
+					currentPeer = view.getRandom();
+					System.out.println("Participant(" + label + "): sending SYN to " + currentPeer.getLabel());
+					currentPeer.onHandshakeSyn(new Handshake(tickCount, Handshake.SYN, this));
+					state = SYN_SENT;
+					timeout = 2; //TODO: parametrize
+					net.addEdge(this, currentPeer);
+				}
+			}	
+		} else if(timeout < 0) {
+			System.out.println("Participant(" + label + "): " + currentPeer.getLabel() + " didn't ACK in time, aborting...");
+			net.removeEdge(net.getEdge(this, currentPeer));
+			currentPeer = null;
+			state = AVAILABLE;
+			handshakeSYNs.clear();
+			handshakeSYNs.clear();
+		} else if(state == SYN_SENT || state == SYN_RECEIVED) {
+			timeout--;
+			if(establishConnection()) {
+				state = ESTABLISHED;
+				
+				Map<PublicKey, Integer> myFrontier = getFrontierByIds(getStoreIds());
+				currentPeer.onEstablished(myFrontier);
+				
+				handshakeSYNs.clear();
+				handshakeACKs.clear();
+			}
+		} else if(state == ESTABLISHED && peerFrontier != null) {
+			System.out.println("Participant(" + label + "): established connection to " + currentPeer.getLabel());
+			
+			for(Entry<PublicKey, Integer> entry : peerFrontier.entrySet()) {
+				PublicKey tempId = entry.getKey();
+				if(!store.containsKey(tempId)) {
+					addLogToStore(tempId);
+					frontier.put(tempId, null);
+				}
+				Map<PublicKey, List<Event>> news = getEventsSince(frontier);
+				currentPeer.onNewsExchange(news);
+			}
+			
+			state = EXCHANGING_NEWS;
+		} else if(state == EXCHANGING_NEWS && peerNews != null) {
+			System.out.println("Participant(" + label + "): exchanging news (for" + peerNews.size() + "participant(s))"
+					+ "with " + currentPeer.getLabel());
+			updateStore(peerNews);
+			
+			peerFrontier = null;
+			peerNews = null;
+			state = FINISHED;
+		} else if(state == FINISHED) {
+			System.out.println("Participant(" + label + "): finished, closing connection to " + currentPeer.getLabel());
+			//remove link with current peer
+			net.removeEdge(net.getEdge(this, currentPeer));
+			state = AVAILABLE;
+		}
+	}
+	
+	public void onHandshakeSyn(Handshake hs) {
+		//reject request if the participant is already involved in another handshake
+		if(state == AVAILABLE) 
+			handshakeSYNs.add(hs);
+	}
+	
+	public void onHandshakeACK(Handshake hs) {
+		//reject the ACK unless it is the expected ACK 
+		if((state == SYN_SENT || state == SYN_RECEIVED) && hs.getPeer().equals(currentPeer)) {
+			handshakeACKs.add(hs);
+		}
+	}
+	
+	private Participant pickRandomSyn() {
+		int tickCount = (int) RunEnvironment.getInstance().getCurrentSchedule().getTickCount();
+		// Filter eligible SYNs (those that were received in the past, current tick is excluded)
+		List<Handshake> eligibleSYNs = new ArrayList<>();
+		for(Handshake hs : handshakeSYNs) {
+			if(hs.getSentAt() < tickCount)
+				eligibleSYNs.add(hs);
+		}
+		
+		
+		if(eligibleSYNs.size() == 0)
+			return null;
+		
+		// Choose one among the handshake SYNs
+		int randomSynIndex = RandomHelper.nextIntFromTo(0, eligibleSYNs.size() - 1);
+		Handshake syn = eligibleSYNs.get(randomSynIndex);
+		// Remove all the others and leave only the chosen peer
+		handshakeSYNs.clear();
+		handshakeSYNs.add(syn);
+		
+		return syn.getPeer();
+	}
+	
+	private boolean establishConnection() {
+		if(handshakeACKs.size() == 0)
+			return false;
+		
+		int tickCount = (int) RunEnvironment.getInstance().getCurrentSchedule().getTickCount();
+		boolean established = false;
+		
+		Handshake ack = handshakeACKs.get(0);
+		
+		if(ack.getSentAt() < tickCount) {
+			
+			if(ack.getType() == Handshake.SYN_ACK && state == SYN_SENT) {
+				currentPeer.onHandshakeACK(new Handshake(tickCount, Handshake.ACK, this));
+				established = true;
+			} else if(ack.getType() == Handshake.ACK && state == SYN_RECEIVED) {
+				established = true;
+			}
+		}
+		
+		return established;
+	}
+	
+	public void onEstablished(Map<PublicKey, Integer> frontier) {
+		this.peerFrontier = frontier;
+	}
+	
+	public void onNewsExchange(Map<PublicKey, List<Event>> news) {
+		this.peerNews = news;
+	}
+	
+	
 	/*
 	 * extend the log with a new event created locally (as owner) from content
 	 */
 	private List<Event> appendToLog(Object content) {
-		List<Event> log = getLogById(id);
-		Integer lastIndex = frontier.get(this.id);
-		Integer previous = log.get(lastIndex).hashCode();
+		List<Event> log = getLogById(this.id);
+		Integer lastIndex = (frontier.get(this.id) == null) ? -1 : frontier.get(this.id);
+		
+		System.out.println("Participant(" + label + "): appending event #" + (lastIndex+1));
+		
+		Integer previous = (lastIndex == -1) ? 0 : log.get(lastIndex).hashCode();
 		Event e = new Event(this.id, previous, lastIndex + 1, this.id, this.privateKey);
 		log.add(e);
 		frontier.put(id, lastIndex + 1);	
@@ -121,16 +267,19 @@ public class Participant {
 	    List<Event> log = getLogById(news.get(0).getId());
 	    for(Event e : news) {
 	    	Integer lastIndex = frontier.get(news.get(0).getId());
+	    	lastIndex = lastIndex == null ? -1 : lastIndex;
+	    	Integer previous = lastIndex == -1 ? 0 : log.get(lastIndex).hashCode();
 	    	
 	    	if(e.getIndex() == lastIndex + 1
-	    			&& log.get(lastIndex).hashCode() == e.getPrevious()
+	    			&& previous == e.getPrevious()
 	    			&& e.isSignatureVerified()) {
-	    		
+	    		System.out.println("Participant(" + label + "): applying update "
+	    				+ "#" + e.getIndex() + " by " + e.getId().toString());
+				
 	    		log.add(e);
 	    		frontier.put(e.getId(), lastIndex + 1);
 	    	}
 	    }
-	    
 	    
 		return log;
 	}
@@ -140,9 +289,10 @@ public class Participant {
 	 */
 	private List<Event> getEventsBetween(PublicKey id, int start, int end) {
 		List<Event> events = new ArrayList<>();
+		List<Event> log = getLogById(id);
 		
 		for(int i=start; i<=end; i++) {
-			events.add(store.get(id).get(i));
+			events.add(log.get(i));
 		}
 		
 		return events;
@@ -157,12 +307,9 @@ public class Participant {
 	/*
 	 * add a log to the store 
 	 */
-	private List<Event> addLogToStore(PublicKey id) {
-		List<Event> log = getLogById(id);
-		
-		if(log == null)
-			log = new ArrayList<>();
-		
+	private List<Event> addLogToStore(PublicKey id) {	
+		CopyOnWriteArrayList<Event> log = new CopyOnWriteArrayList<>();
+		store.put(id, log);
 		return log;
 	}
 	
@@ -177,7 +324,7 @@ public class Participant {
 	 * get the log with id from the store, if present 
 	 */
 	private List<Event> getLogById(PublicKey id) {
-		List<Event> log = getLogById(id);
+		List<Event> log = store.get(id);
 		
 		if(log == null)
 			log = addLogToStore(id);
@@ -236,20 +383,37 @@ public class Participant {
 	/*
 	 * update the logs in store with events
 	 */
-	private void updateStore(Map<PublicKey, List<Event>> events) {
+	private void updateStore(Map<PublicKey, List<Event>> news) {
+		System.out.println("Participant(" + label + "): updating store with news for" 
+				+ news.size() + " participant(s)");
 		
-		for(Entry<PublicKey, List<Event>> entry : events.entrySet()) {
+		for(Entry<PublicKey, List<Event>> entry : news.entrySet()) {
 			PublicKey tempId = entry.getKey();
-			List<Event> eventsById = entry.getValue(); //new events
-			//List<Event> log = get(tempId); //target long for append operations
-			updateLog(eventsById);
+			List<Event> newsById = entry.getValue(); //new events
+			//List<Event> log = get(tempId); //target log for append operations
+			updateLog(newsById);
 		}
 	}
 	
+	public View getView() {
+		return view;
+	}
 	
+	public void setView(View view) {
+		this.view = view;
+	}
 	
+	public int getState() {
+		return state;
+	}
 	
+	public Participant getCurrentPeer() {
+		return currentPeer;
+	}
 	
+	public String getLabel() {
+		return label;
+	}
 	
 //	//Relay__II private Map<Integer, ArrayList<Perturbation>> bag; //Out-of-order perturbations go here, waiting to be delivered later
 //		private Map<Integer, ArrayList<Perturbation>> log; //append-only log, one log per source

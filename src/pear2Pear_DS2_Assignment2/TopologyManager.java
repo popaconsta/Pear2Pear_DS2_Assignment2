@@ -29,12 +29,14 @@ public class TopologyManager {
 	private static Context<Object> context; //simulation context
 	private static int nextId; //next available relay id
 	private static int currentRelayNum; //currently alive relays
-	
+	private static List<Participant> allParticipants;
 
     // static method to initialize the topology manager
     public static void initialize(Context<Object> ctx) { 
      
     	availableLocations = new ArrayList<>(); //instantiate the list
+    	allParticipants = new ArrayList<Participant>();
+    	
     	context = ctx;
     	
     	//Prepare the space for the relays
@@ -67,11 +69,17 @@ public class TopologyManager {
 		}
 		
 		//Create and add the relays to the space
-		for (int i = 0; i < Options.MAX_RELAY_COUNT; i ++) {
-			context.add(new Participant(i));
+		for (int i = 0; i < Options.MAX_PARTICIPANT_COUNT; i++) {
+			allParticipants.add(new Participant(KeyManager.PUBLIC_KEYS.get(i), KeyManager.PRIVATE_KEYS.get(i), Integer.toString(i)));
 		}
-    	nextId = Options.MAX_RELAY_COUNT; //initially the next id is the initial amount of relays
-    	currentRelayNum = Options.MAX_RELAY_COUNT;
+		//Initialize participants view
+		for (int i = 0; i < Options.MAX_PARTICIPANT_COUNT; i++) {
+			context.add(allParticipants.get(i));
+			for(int j = 0; j < Options.MAX_PARTICIPANT_COUNT / 4; j++) 
+				allParticipants.get(i).getView().add(allParticipants.get((i + j + 1) % Options.MAX_PARTICIPANT_COUNT));
+		}
+    	nextId = Options.MAX_PARTICIPANT_COUNT; //initially the next id is the initial amount of relays
+    	currentRelayNum = Options.MAX_PARTICIPANT_COUNT;
      
     }
 	
@@ -100,7 +108,7 @@ public class TopologyManager {
 	 */
 	@ScheduledMethod(start = 1, interval = 1)
 	public static void addNewRelays() {
-		for(int i=0; i<Options.MAX_RELAY_COUNT; i++) {
+		for(int i=0; i<Options.MAX_PARTICIPANT_COUNT; i++) {
 			double coinToss = RandomHelper.nextDoubleFromTo(0, 1);
 			//Check if there are available locations
 			if(coinToss <= Options.JOIN_PROBABILITY && availableLocations.size() > 0) {
@@ -121,7 +129,9 @@ public class TopologyManager {
 				KeyManager.generateKeys(nextId);
 				System.out.println("Relay(" + nextId + ") is joining the context...");
 				//Place the new relay in the context
-				Participant participant = new Participant(nextId++);
+				Participant participant = new Participant(
+						KeyManager.PUBLIC_KEYS.get(nextId), KeyManager.PRIVATE_KEYS.get(nextId), Integer.toBinaryString(nextId));
+				nextId++;
 				context.add(participant);
 				space.moveTo(participant, x, y);
 				currentRelayNum++;
@@ -131,7 +141,7 @@ public class TopologyManager {
 	
 	//Position the relays in a structured way, in order to form a specific topology
 	public static void buildTopology() {
-		int n = Options.MAX_RELAY_COUNT;
+		int n = Options.MAX_PARTICIPANT_COUNT;
 		String topology = Options.TOPOLOGY;
 		
 		//Ring topology
