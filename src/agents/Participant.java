@@ -2,6 +2,8 @@ package agents;
 
 import java.security.PrivateKey;
 import java.security.PublicKey;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -40,6 +42,7 @@ public class Participant {
 	public static final int ESTABLISHED = 3;
 	public static final int NEWS_EXCHANGED = 4;
 	public static final int FINISHED = 5;
+
 
 	TopologyManager topologyManager; //object containing useful methods for adding and removing participants
 	private View view; //partial view of the other neighbour participants
@@ -120,6 +123,18 @@ public class Participant {
 			//TODO: see if you are going to follow or block someone; add to follows and blocks
 			
 		} 
+		
+		// DEBUG
+		Context<Object> context = ContextUtils.getContext(this);
+		if(RunEnvironment.getInstance().getCurrentSchedule().getTickCount() == 2 && label.equals(Integer.toString(1))) {
+			for(Object obj : context) {
+				if(obj instanceof Participant) {
+					if(((Participant)obj).label.equals(Integer.toString(2))) {
+						block(((Participant) obj).getPublicKey());
+					}
+				}
+			}
+		}
 	}
 	
 	
@@ -129,6 +144,16 @@ public class Participant {
 		int tickCount = (int) RunEnvironment.getInstance().getCurrentSchedule().getTickCount();
 		Context<Object> context = ContextUtils.getContext(this);
 		Network<Object> net = (Network<Object>) context.getProjection("handshake network");
+		
+		//DEBUG
+		System.out.println("Paricipant(" + label + ") list of follows: ");
+		for(Entry<PublicKey, List<PublicKey>> entry : follows.entrySet()) {
+			System.out.println("--" + entry.getKey());
+			for(PublicKey other : entry.getValue()) {
+				System.out.println("----" + other);
+			}
+		}
+		
 		
 		if(state == AVAILABLE) {
 			currentPeer = pickRandomSyn();
@@ -168,21 +193,26 @@ public class Participant {
 				timeout = 2; //reset timeout
 			}
 		} else if(state == ESTABLISHED && peerFrontier != null) {
-			System.out.println("Participant(" + label + "): inspecting frontier from " + currentPeer.getLabel());
-			
-			for(Entry<PublicKey, Integer> entry : peerFrontier.entrySet()) {
-				PublicKey tempId = entry.getKey();
-				if(!store.containsKey(tempId)) {
-					addLogToStore(tempId);
-					frontier.put(tempId, -1);
+			//if currentPeer is not blocked by me, exchange news. Otherwise, skip
+			if(!blocks.containsKey(this.id) || !blocks.get(this.id).contains(currentPeer.getPublicKey())) {
+				System.out.println("Participant(" + label + "): inspecting frontier from " + currentPeer.getLabel());
+				
+				for(Entry<PublicKey, Integer> entry : peerFrontier.entrySet()) {
+					PublicKey tempId = entry.getKey();
+					if(!store.containsKey(tempId)) {
+						addLogToStore(tempId);
+						frontier.put(tempId, -1);
+					}
 				}
+				
+				Map<PublicKey, List<Event>> news = getEventsSince(peerFrontier);
+				currentPeer.onNewsExchange(news);
+				
+				System.out.println("Participant(" + label + "): exchanging news from "
+						+ news.size() + "partecipant(s) with " + currentPeer.getLabel());
+			} else {
+				System.out.println("Participant(" + label + "): won't exchange with " + currentPeer.getLabel() + " because is a blocked participant");
 			}
-			
-			Map<PublicKey, List<Event>> news = getEventsSince(peerFrontier);
-			currentPeer.onNewsExchange(news);
-			
-			System.out.println("Participant(" + label + "): exchanging news from "
-					+ news.size() + "partecipant(s) with " + currentPeer.getLabel());
 			
 			state = NEWS_EXCHANGED;
 		} else if(state == NEWS_EXCHANGED && peerNews != null) {
@@ -196,16 +226,18 @@ public class Participant {
 			}
 			
 			// Line 3 of algorithm
-			for(PublicKey followed : follows.get(currentPeer.getPublicKey())) {
-				if(!getStoreIds().contains(followed))
-					addLogToStore(followed);
-			}
+			if(follows.containsKey(currentPeer.getPublicKey()))
+				for(PublicKey followed : follows.get(currentPeer.getPublicKey())) {
+					if(!getStoreIds().contains(followed))
+						addLogToStore(followed);
+				}
 			
 			//Line 4 of algorithm
-			for(PublicKey blocked : blocks.get(currentPeer.getPublicKey())) {
-				if(getStoreIds().contains(blocked))
-					removeLogFromStore(blocked);
-			}
+			if(blocks.containsKey(currentPeer.getPublicKey()))
+				for(PublicKey blocked : blocks.get(currentPeer.getPublicKey())) {
+					if(getStoreIds().contains(blocked))
+						removeLogFromStore(blocked);
+				}
 			
 			updateStore(peerNews);
 			
@@ -468,22 +500,29 @@ public class Participant {
 	/*
 	 * publicly record in log active interest in id
 	 */
-	private void follow(PublicKey id) {
-		appendToLog(new Interest(id, InterestType.follow.getValue()));
+	
+	//TODO check for logic
+	private void follow(PublicKey target) {
+		appendToLog(new Interest(target, InterestType.follow.getValue()));
+		addToFollows(this.id, target);
 	}
 	
-	private void unfollow(PublicKey id) {
+	private void unfollow(PublicKey target) {
 		appendToLog(new Interest(id, InterestType.unfollow.getValue()));
+		removeFromFollows(this.id, target);
 	}
 	
-	private void block(PublicKey id) {
+	private void block(PublicKey target) {
 		appendToLog(new Interest(id, InterestType.block.getValue()));
+		addToBlocks(this.id, target);
 	}
 	
-	private void unblock(PublicKey id) {
+	private void unblock(PublicKey target) {
 		appendToLog(new Interest(id, InterestType.unblock.getValue()));
+		removeFromBlocks(this.id, target);
 	}
 	
+	//TODO check logic
 	private void updateInterests(PublicKey id, List<Event> news) {
 		for(Event e : news) {
 			if(e.getContent() instanceof Interest) {

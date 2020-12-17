@@ -13,7 +13,7 @@ public class Interest {
 	}
 	
 	public int getType() {
-		return this.getType();
+		return this.type;
 	}
 	
 	public PublicKey getTarget() {
