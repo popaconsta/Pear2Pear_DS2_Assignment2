@@ -27,6 +27,7 @@ import repast.simphony.util.ContextUtils;
 import Utils.Options;
 import communication.Event;
 import communication.Handshake;
+import communication.Interest;
 
 /*
  * This class encapsulates the behavior of the participant.g
@@ -61,6 +62,25 @@ public class Participant {
 	private double probabilityOfHandshake = 0.15; //TODO:parametrize
 	private int timeout;
 	
+	private enum InterestType {
+		follow(1),
+		unfollow(2),
+		block(3),
+		unblock(4);
+		
+		private int value;
+		private InterestType(int value) {
+			this.value = value;
+		}
+		
+		public int getValue() {
+			return this.value;
+		}
+	}
+	
+	private Map<PublicKey, List<PublicKey>> follows;
+	private Map<PublicKey, List<PublicKey>> blocks;
+	
 	
 	public Participant(PublicKey id, PrivateKey privateKey, String label) {
 		super();
@@ -78,6 +98,8 @@ public class Participant {
 		store = new HashMap<>();
 		frontier = new HashMap<>();
 		probabilityOfNewEvent = Options.PROBABILITY_OF_PERTURBATION;
+		follows = new HashMap<>();
+		blocks = new HashMap<>();
 	}
 
 
@@ -94,6 +116,8 @@ public class Participant {
 		if(coinToss <= probabilityOfNewEvent) { //propagate a value broadcast perturbation
 			
 			appendToLog(new String("ciao"));
+			
+			//TODO: see if you are going to follow or block someone; add to follows and blocks
 			
 		} 
 	}
@@ -164,7 +188,28 @@ public class Participant {
 		} else if(state == NEWS_EXCHANGED && peerNews != null) {
 			System.out.println("Participant(" + label + "): closing connection to " 
 					+ currentPeer.getLabel() + " and applying updates from " + peerNews.size() + " participants.");
+			
+			//Algorithm 3
+			//compute new follows and blocks
+			for(Entry<PublicKey, List<Event>> entry : peerNews.entrySet()) {
+				updateInterests(entry.getKey(), entry.getValue());
+			}
+			
+			// Line 3 of algorithm
+			for(PublicKey followed : follows.get(currentPeer.getPublicKey())) {
+				if(!getStoreIds().contains(followed))
+					addLogToStore(followed);
+			}
+			
+			//Line 4 of algorithm
+			for(PublicKey blocked : blocks.get(currentPeer.getPublicKey())) {
+				if(getStoreIds().contains(blocked))
+					removeLogFromStore(blocked);
+			}
+			
 			updateStore(peerNews);
+			
+
 			
 			state = FINISHED;
 		} else if(state == FINISHED) {
@@ -259,7 +304,7 @@ public class Participant {
 		System.out.println("Participant(" + label + "): appending event #" + (lastIndex+1));
 		
 		Integer previous = (lastIndex == -1) ? 0 : log.get(lastIndex).hashCode();
-		Event e = new Event(this.id, previous, lastIndex + 1, this.id, this.privateKey);
+		Event e = new Event(this.id, previous, lastIndex + 1, content, this.privateKey);
 		log.add(e);
 		frontier.put(id, lastIndex + 1);	
 		
@@ -414,6 +459,95 @@ public class Participant {
 		}
 	}
 	
+	/*
+	 * ****************************************************
+	 * ********** TRANSITIVE-INTEREST OPERATIONS **********
+	 * ****************************************************
+	 */
+	
+	/*
+	 * publicly record in log active interest in id
+	 */
+	private void follow(PublicKey id) {
+		appendToLog(new Interest(id, InterestType.follow.getValue()));
+	}
+	
+	private void unfollow(PublicKey id) {
+		appendToLog(new Interest(id, InterestType.unfollow.getValue()));
+	}
+	
+	private void block(PublicKey id) {
+		appendToLog(new Interest(id, InterestType.block.getValue()));
+	}
+	
+	private void unblock(PublicKey id) {
+		appendToLog(new Interest(id, InterestType.unblock.getValue()));
+	}
+	
+	private void updateInterests(PublicKey id, List<Event> news) {
+		for(Event e : news) {
+			if(e.getContent() instanceof Interest) {
+				if(((Interest)e.getContent()).getType() == InterestType.follow.getValue()) {
+					addToFollows(id, ((Interest)e.getContent()).getTarget());
+				}
+				if(((Interest)e.getContent()).getType() == InterestType.unfollow.getValue()) {
+					removeFromFollows(id, ((Interest)e.getContent()).getTarget());
+				}
+				if(((Interest)e.getContent()).getType() == InterestType.block.getValue()) {
+					addToBlocks(id, ((Interest)e.getContent()).getTarget());
+				}
+				if(((Interest)e.getContent()).getType() == InterestType.unblock.getValue()) {
+					removeFromBlocks(id, ((Interest)e.getContent()).getTarget());
+				}
+			}
+		}
+	}
+	
+	
+	// Note up that id follows target; if target is blocked, unblock
+	private void addToFollows(PublicKey id, PublicKey target) {
+		
+		if(blocks.containsKey(id) && blocks.get(id).contains(target)) {
+			removeFromBlocks(id, target);
+		}
+		if(!follows.containsKey(id)) {
+			follows.put(id, new ArrayList<>());
+		}
+				
+		if(!follows.get(id).contains(target)) {
+			follows.get(id).add(target);
+		}
+	}
+	
+	// Note up that id does not follow target anymore
+	private void removeFromFollows(PublicKey id, PublicKey target) {
+		if(follows.containsKey(id) && follows.get(id).contains(target)) {
+			follows.get(id).remove(target);
+		}
+	}
+	
+	// Note up that id blocks target; if target is followed, unfollow
+	private void addToBlocks(PublicKey id, PublicKey target) {
+		
+		if(follows.containsKey(id) && follows.get(id).contains(target)) {
+			removeFromFollows(id, target);
+		}
+		if(!blocks.containsKey(id)) {
+			blocks.put(id, new ArrayList<>());
+		}
+		
+		if(!blocks.get(id).contains(target)) {
+			blocks.get(id).add(target);
+		}
+	}
+	
+	//Note up that id odes not block target anymore
+	private void removeFromBlocks(PublicKey id, PublicKey target) {
+		if(blocks.containsKey(id) && blocks.get(id).contains(target)) {
+			blocks.get(id).remove(target);
+		}
+	}
+	
 	public View getView() {
 		return view;
 	}
@@ -432,6 +566,10 @@ public class Participant {
 	
 	public String getLabel() {
 		return label;
+	}
+	
+	public PublicKey getPublicKey() {
+		return id;
 	}
 	
 //	//Relay__II private Map<Integer, ArrayList<Perturbation>> bag; //Out-of-order perturbations go here, waiting to be delivered later
