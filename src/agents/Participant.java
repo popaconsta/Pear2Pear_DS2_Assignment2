@@ -119,11 +119,35 @@ public class Participant {
 		if(coinToss <= probabilityOfNewEvent) { //propagate a value broadcast perturbation	
 			appendToLog(new String("ciao"));
 		} else if (coinToss <= probabilityOfNewEvent + Options.PROBABILITY_TO_FOLLOW) {
-			PublicKey target = pickRandomFollowedHop(pickRandomFollowed());
+			
+			//follow one random participant followed by someone i already follow; if cannot find, pick a random one
+			PublicKey temp = pickRandomFollowed();
+			PublicKey target = null;
+			if(temp != null) {
+				target = pickRandomFollowedHop(temp);
+				if(target == null) {
+					target = pickRandomParticipant();
+				}
+			} else {
+				target = pickRandomParticipant();
+			}
 			follow(target);
+			
 		} else if (coinToss <= probabilityOfNewEvent + Options.PROBABILITY_TO_FOLLOW + Options.PROBABILITY_TO_BLOCK) {
-			PublicKey target = pickRandomBlockedHop(pickRandomFollowed());
+			
+			//block one random participant blocked by someone i follow; if cannot find, pick a random one
+			PublicKey temp = pickRandomFollowed();
+			PublicKey target = null;
+			if(temp != null) {
+				target = pickRandomBlockedHop(temp);
+				if(target == null) {
+					target = pickRandomParticipant();
+				}
+			} else {
+				target = pickRandomParticipant();
+			}
 			block(target);
+			
 		}
 		
 	}
@@ -598,6 +622,21 @@ public class Participant {
 		}
 	}
 	
+	private PublicKey pickRandomParticipant() {
+		Context<Object> context = ContextUtils.getContext(this);
+		List<Participant> tempParticipants = new ArrayList<>();
+		
+		for(Object obj : context) {
+			if(obj instanceof Participant) {
+				if(!obj.equals(this)) {
+					tempParticipants.add((Participant)obj);
+				}
+			}
+		}
+		
+		return tempParticipants.get(RandomHelper.nextIntFromTo(0, tempParticipants.size())).getPublicKey();
+	}
+	
 	public View getView() {
 		return view;
 	}
@@ -621,6 +660,7 @@ public class Participant {
 	public PublicKey getPublicKey() {
 		return id;
 	}
+	
 	
 //	//Relay__II private Map<Integer, ArrayList<Perturbation>> bag; //Out-of-order perturbations go here, waiting to be delivered later
 //		private Map<Integer, ArrayList<Perturbation>> log; //append-only log, one log per source
