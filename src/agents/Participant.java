@@ -116,25 +116,14 @@ public class Participant {
 	public void generateEvent() {
 		double coinToss = RandomHelper.nextDoubleFromTo(0, 1);
 		//Generate a broadcast with one fourth of the probability
-		if(coinToss <= probabilityOfNewEvent) { //propagate a value broadcast perturbation
-			
+		if(coinToss <= probabilityOfNewEvent) { //propagate a value broadcast perturbation	
 			appendToLog(new String("ciao"));
-			
-			//TODO: see if you are going to follow or block someone; add to follows and blocks
-			
-		} 
-		
-		// DEBUG
-		Context<Object> context = ContextUtils.getContext(this);
-		if(RunEnvironment.getInstance().getCurrentSchedule().getTickCount() == 2 && label.equals(Integer.toString(1))) {
-			for(Object obj : context) {
-				if(obj instanceof Participant) {
-					if(((Participant)obj).label.equals(Integer.toString(2))) {
-						block(((Participant) obj).getPublicKey());
-					}
-				}
-			}
+		} else if (coinToss <= probabilityOfNewEvent + Options.PROBABILITY_TO_FOLLOW) {
+			//TODO how to follow a random node? Which one should i follow?
+		} else if (coinToss <= probabilityOfNewEvent + Options.PROBABILITY_TO_FOLLOW + Options.PROBABILITY_TO_BLOCK) {
+			//TODO how to block a random node? Which one should i block?
 		}
+		
 	}
 	
 	
@@ -143,17 +132,7 @@ public class Participant {
 		
 		int tickCount = (int) RunEnvironment.getInstance().getCurrentSchedule().getTickCount();
 		Context<Object> context = ContextUtils.getContext(this);
-		Network<Object> net = (Network<Object>) context.getProjection("handshake network");
-		
-		//DEBUG
-		System.out.println("Paricipant(" + label + ") list of follows: ");
-		for(Entry<PublicKey, List<PublicKey>> entry : follows.entrySet()) {
-			System.out.println("--" + entry.getKey());
-			for(PublicKey other : entry.getValue()) {
-				System.out.println("----" + other);
-			}
-		}
-		
+		Network<Object> net = (Network<Object>) context.getProjection("handshake network");	
 		
 		if(state == AVAILABLE) {
 			currentPeer = pickRandomSyn();
@@ -219,27 +198,30 @@ public class Participant {
 			System.out.println("Participant(" + label + "): closing connection to " 
 					+ currentPeer.getLabel() + " and applying updates from " + peerNews.size() + " participants.");
 			
-			//Algorithm 3
-			//compute new follows and blocks
-			for(Entry<PublicKey, List<Event>> entry : peerNews.entrySet()) {
-				updateInterests(entry.getKey(), entry.getValue());
+			//if currentPeer is not blocked by me, update with news. Otherwise, skip
+			if(!blocks.containsKey(this.id) || !blocks.get(this.id).contains(currentPeer.getPublicKey())) {
+				//Algorithm 3
+				//compute new follows and blocks
+				for(Entry<PublicKey, List<Event>> entry : peerNews.entrySet()) {
+					updateInterests(entry.getKey(), entry.getValue());
+				}
+				
+				// Line 3 of algorithm
+				if(follows.containsKey(currentPeer.getPublicKey()))
+					for(PublicKey followed : follows.get(currentPeer.getPublicKey())) {
+						if(!getStoreIds().contains(followed))
+							addLogToStore(followed);
+					}
+				
+				//Line 4 of algorithm
+				if(blocks.containsKey(currentPeer.getPublicKey()))
+					for(PublicKey blocked : blocks.get(currentPeer.getPublicKey())) {
+						if(getStoreIds().contains(blocked))
+							removeLogFromStore(blocked);
+					}
+				
+				updateStore(peerNews);
 			}
-			
-			// Line 3 of algorithm
-			if(follows.containsKey(currentPeer.getPublicKey()))
-				for(PublicKey followed : follows.get(currentPeer.getPublicKey())) {
-					if(!getStoreIds().contains(followed))
-						addLogToStore(followed);
-				}
-			
-			//Line 4 of algorithm
-			if(blocks.containsKey(currentPeer.getPublicKey()))
-				for(PublicKey blocked : blocks.get(currentPeer.getPublicKey())) {
-					if(getStoreIds().contains(blocked))
-						removeLogFromStore(blocked);
-				}
-			
-			updateStore(peerNews);
 			
 
 			

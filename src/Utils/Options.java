@@ -19,6 +19,9 @@ public class Options {
 	public static double JOIN_PROBABILITY;
 	public static double RELAY_RANGE;
 	
+	public static double PROBABILITY_TO_FOLLOW;
+	public static double PROBABILITY_TO_BLOCK;
+	
 	public static int NODE_A_BROADCAST;
 	public static int NODE_B_BROADCAST;
 	
@@ -37,5 +40,7 @@ public class Options {
 		CRASH_PROBABILITY = params.getDouble("CRASH_PROBABILITY");
 		JOIN_PROBABILITY = params.getDouble("JOIN_PROBABILITY");
 		RELAY_RANGE = params.getDouble("RELAY_RANGE");
+		PROBABILITY_TO_FOLLOW = params.getDouble("PROBABILITY_TO_FOLLOW");
+		PROBABILITY_TO_BLOCK = params.getDouble("PROBABILITY_TO_BLOCK");
 	}
 }
