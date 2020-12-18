@@ -119,9 +119,11 @@ public class Participant {
 		if(coinToss <= probabilityOfNewEvent) { //propagate a value broadcast perturbation	
 			appendToLog(new String("ciao"));
 		} else if (coinToss <= probabilityOfNewEvent + Options.PROBABILITY_TO_FOLLOW) {
-			//TODO how to follow a random node? Which one should i follow?
+			PublicKey target = pickRandomFollowedHop(pickRandomFollowed());
+			follow(target);
 		} else if (coinToss <= probabilityOfNewEvent + Options.PROBABILITY_TO_FOLLOW + Options.PROBABILITY_TO_BLOCK) {
-			//TODO how to block a random node? Which one should i block?
+			PublicKey target = pickRandomBlockedHop(pickRandomFollowed());
+			block(target);
 		}
 		
 	}
@@ -483,7 +485,7 @@ public class Participant {
 	 * publicly record in log active interest in id
 	 */
 	
-	//TODO check for logic
+	
 	private void follow(PublicKey target) {
 		appendToLog(new Interest(target, InterestType.follow.getValue()));
 		addToFollows(this.id, target);
@@ -504,7 +506,7 @@ public class Participant {
 		removeFromBlocks(this.id, target);
 	}
 	
-	//TODO check logic
+	
 	private void updateInterests(PublicKey id, List<Event> news) {
 		for(Event e : news) {
 			if(e.getContent() instanceof Interest) {
@@ -529,7 +531,7 @@ public class Participant {
 	private void addToFollows(PublicKey id, PublicKey target) {
 		
 		if(blocks.containsKey(id) && blocks.get(id).contains(target)) {
-			removeFromBlocks(id, target);
+			unblock(target);
 		}
 		if(!follows.containsKey(id)) {
 			follows.put(id, new ArrayList<>());
@@ -551,7 +553,7 @@ public class Participant {
 	private void addToBlocks(PublicKey id, PublicKey target) {
 		
 		if(follows.containsKey(id) && follows.get(id).contains(target)) {
-			removeFromFollows(id, target);
+			unfollow(target);
 		}
 		if(!blocks.containsKey(id)) {
 			blocks.put(id, new ArrayList<>());
@@ -566,6 +568,33 @@ public class Participant {
 	private void removeFromBlocks(PublicKey id, PublicKey target) {
 		if(blocks.containsKey(id) && blocks.get(id).contains(target)) {
 			blocks.get(id).remove(target);
+		}
+	}
+	
+	private PublicKey pickRandomFollowed() {
+		if(follows.containsKey(this.id) && !follows.get(this.id).isEmpty()) {
+			int index = RandomHelper.nextIntFromTo(0, follows.get(this.id).size());
+			return follows.get(this.id).get(index);
+		} else {
+			return null;
+		}
+	}
+	
+	private PublicKey pickRandomFollowedHop(PublicKey friend) {
+		if(follows.containsKey(friend) && !follows.get(friend).isEmpty()) {
+			int index = RandomHelper.nextIntFromTo(0, follows.get(friend).size());
+			return follows.get(friend).get(index);
+		} else {
+			return null;
+		}
+	}
+	
+	private PublicKey pickRandomBlockedHop(PublicKey friend) {
+		if(blocks.containsKey(friend) && !blocks.get(friend).isEmpty()) {
+			int index = RandomHelper.nextIntFromTo(0, blocks.get(friend).size());
+			return blocks.get(friend).get(index);
+		} else {
+			return null;
 		}
 	}
 	
