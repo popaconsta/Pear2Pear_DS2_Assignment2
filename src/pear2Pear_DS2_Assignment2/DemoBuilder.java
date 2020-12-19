@@ -46,7 +46,7 @@ public class DemoBuilder implements ContextBuilder<Object> {
 		 * participants who attempt handshakes with each other. 
 		 * When a participant sends a SYN/SYN_ACK/ACK message, the link is updated
 		 */
-		NetworkBuilder<Object> netBuilder = new NetworkBuilder<Object>("handshake network", context, false);
+		NetworkBuilder<Object> netBuilder = new NetworkBuilder<Object>("peer network", context, false);
 		netBuilder.buildNetwork();
 		
 		//Generate public and private keys

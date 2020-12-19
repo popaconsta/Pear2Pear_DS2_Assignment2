@@ -4,15 +4,21 @@ import java.security.PublicKey;
 
 public class Interest {
 	
-	private PublicKey id;
-	private int type;
+	public static enum Type {
+		FOLLOW, UNFOLLOW, BLOCK, UNBLOCK;
+	}
 	
-	public Interest(PublicKey id, int type) {
+	private PublicKey id;
+	private Type type;
+	
+	
+	
+	public Interest(PublicKey id, Type type) {
 		this.id = id;
 		this.type = type;
 	}
 	
-	public int getType() {
+	public Type getType() {
 		return this.type;
 	}
 	

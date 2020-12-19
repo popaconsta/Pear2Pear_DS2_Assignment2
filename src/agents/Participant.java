@@ -36,54 +36,33 @@ import communication.Interest;
  */
 public class Participant {
 	
-	public static final int AVAILABLE = 0;
-	public static final int SYN_SENT = 1;
-	public static final int SYN_RECEIVED = 2;
-	public static final int ESTABLISHED = 3;
-	public static final int NEWS_EXCHANGED = 4;
-	public static final int FINISHED = 5;
+	public enum State {
+	    AVAILABLE, SYN_SENT, SYN_RECEIVED, CONN_ESTABLISHED, NEWS_EXCHANGED, FINISHED; 
+	}
 
-
+	String protocolVariant;
 	TopologyManager topologyManager; //object containing useful methods for adding and removing participants
 	private View view; //partial view of the other neighbour participants
 	private PublicKey id; //public key of the participant 
+	private String label;
 	private PrivateKey privateKey; //private key of the participant 
 	private Map<PublicKey, CopyOnWriteArrayList<Event>> store; //append-only store containing one log per participant
 	private Map<PublicKey, Integer> frontier; //reference of next expected event for each participant
-	private int clock; //Incrementally growing id for the emitted events
-	private int state;
+	private State state;
+	private int timeout;
 	
 	private List<Handshake> handshakeSYNs;
 	private List<Handshake> handshakeACKs;
 	private Participant currentPeer;
 	private Map<PublicKey, Integer> peerFrontier;
 	private Map<PublicKey, List<Event>> peerNews;
-	private String label;
-
-	//Relays generate perturbations with a given probability value
-	private double probabilityOfNewEvent;
-	private double probabilityOfHandshake = 0.15; //TODO:parametrize
-	private int timeout;
-	
-	private enum InterestType {
-		follow(1),
-		unfollow(2),
-		block(3),
-		unblock(4);
-		
-		private int value;
-		private InterestType(int value) {
-			this.value = value;
-		}
-		
-		public int getValue() {
-			return this.value;
-		}
-	}
 	
 	private Map<PublicKey, List<PublicKey>> follows;
 	private Map<PublicKey, List<PublicKey>> blocks;
 	
+	//Relays generate perturbations with a given probability value
+	private double probabilityOfNewEvent;
+	private double probabilityOfHandshake = 0.15; //TODO:parametrize
 	
 	public Participant(PublicKey id, PrivateKey privateKey, String label) {
 		super();
@@ -92,20 +71,18 @@ public class Participant {
 		this.label = label;
 		
 		view = new View(Options.MAX_PARTICIPANT_COUNT / 4); //each view contains a quarter of the participants
-		clock = 0;
 		timeout = 0;
-		state = AVAILABLE;
+		state = State.AVAILABLE;
 		currentPeer = null;
 		handshakeSYNs = new ArrayList<>();
 		handshakeACKs = new ArrayList<>();
 		store = new HashMap<>();
 		frontier = new HashMap<>();
 		probabilityOfNewEvent = Options.PROBABILITY_OF_PERTURBATION;
+		protocolVariant = Options.PROTOCOL_VARIANT;
 		follows = new HashMap<>();
 		blocks = new HashMap<>();
 	}
-
-
 
 
 	/*
@@ -118,63 +95,134 @@ public class Participant {
 		//Generate a broadcast with one fourth of the probability
 		if(coinToss <= probabilityOfNewEvent) { //propagate a value broadcast perturbation	
 			appendToLog(new String("ciao"));
-		} else if (coinToss <= probabilityOfNewEvent + Options.PROBABILITY_TO_FOLLOW) {
-			
-			//follow one random participant followed by someone i already follow; if cannot find, pick a random one
-			PublicKey temp = pickRandomFollowed();
-			PublicKey target = null;
-			if(temp != null) {
-				target = pickRandomFollowedHop(temp);
-				if(target == null) {
-					target = pickRandomParticipant();
-				}
-			} else {
-				target = pickRandomParticipant();
-			}
-			follow(target);
-			
-		} else if (coinToss <= probabilityOfNewEvent + Options.PROBABILITY_TO_FOLLOW + Options.PROBABILITY_TO_BLOCK) {
-			
-			//block one random participant blocked by someone i follow; if cannot find, pick a random one
-			PublicKey temp = pickRandomFollowed();
-			PublicKey target = null;
-			if(temp != null) {
-				target = pickRandomBlockedHop(temp);
-				if(target == null) {
-					target = pickRandomParticipant();
-				}
-			} else {
-				target = pickRandomParticipant();
-			}
-			block(target);
-			
-		}
+		} 
+//		else if (coinToss <= probabilityOfNewEvent + Options.PROBABILITY_TO_FOLLOW) {
+//			
+//			//follow one random participant followed by someone i already follow; if cannot find, pick a random one
+//			PublicKey temp = pickRandomFollowed();
+//			PublicKey target = null;
+//			if(temp != null) {
+//				target = pickRandomFollowedHop(temp);
+//				if(target == null) {
+//					target = pickRandomParticipant();
+//				}
+//			} else {
+//				target = pickRandomParticipant();
+//			}
+//			follow(target);
+//			
+//		} else if (coinToss <= probabilityOfNewEvent + Options.PROBABILITY_TO_FOLLOW + Options.PROBABILITY_TO_BLOCK) {
+//			
+//			//block one random participant blocked by someone i follow; if cannot find, pick a random one
+//			PublicKey temp = pickRandomFollowed();
+//			PublicKey target = null;
+//			if(temp != null) {
+//				target = pickRandomBlockedHop(temp);
+//				if(target == null) {
+//					target = pickRandomParticipant();
+//				}
+//			} else {
+//				target = pickRandomParticipant();
+//			}
+//			block(target);
+//			
+//		}
 		
 	}
 	
+	@ScheduledMethod(start=1, interval=1, priority=49) 
+	public void runOpenGossipProtocol() {
+		if(!protocolVariant.equals("OPEN_GOSSIP")) 
+			return;
+		
+		if(state == State.AVAILABLE 
+				|| timeout < 0 
+				|| state == State.SYN_SENT 
+				|| state == State.SYN_RECEIVED
+				|| state == State.CONN_ESTABLISHED
+				|| state == State.FINISHED) {
+			
+			peerHandshake();
+			
+		} else if(state == State.NEWS_EXCHANGED && peerNews != null) {
+			System.out.println("Participant(" + label + "): applying updates from " + peerNews.size() + " participants.");
+			updateStore(peerNews);
+			state = State.FINISHED;
+		} 
+	}
 	
 	@ScheduledMethod(start=1, interval=1, priority=50) 
-	public void runOpenGossipProtocol() {
+	public void runTransitiveInterestGossipProtocol() {
+		if(!protocolVariant.equals("TRANSITIVE_INTEREST_GOSSIP")) 
+			return;
+		
+		if(state == State.AVAILABLE 
+				|| timeout < 0 
+				|| state == State.SYN_SENT 
+				|| state == State.SYN_RECEIVED		
+				|| state == State.CONN_ESTABLISHED
+				|| state == State.FINISHED) {
+			
+			peerHandshake();
+			
+		} else if(state == State.NEWS_EXCHANGED && peerNews != null) {
+			System.out.println("Participant(" + label + "): applying updates from " + peerNews.size() + " participants.");
+			
+			//if currentPeer is not blocked by me, update with news. Otherwise, skip
+			if(!blocks.containsKey(this.id) || !blocks.get(this.id).contains(currentPeer.getId())) {
+				
+				//Algorithm 3
+				//compute new follows and blocks
+				for(Entry<PublicKey, List<Event>> entry : peerNews.entrySet()) 
+					updateInterests(entry.getKey(), entry.getValue());
+				
+				
+				// Line 3 of algorithm
+				if(follows.containsKey(currentPeer.getId()))
+					for(PublicKey followed : follows.get(currentPeer.getId())) 
+						if(!getStoreIds().contains(followed))
+							addLogToStore(followed);
+					
+				
+				//Line 4 of algorithm
+				if(blocks.containsKey(currentPeer.getId()))
+					for(PublicKey blocked : blocks.get(currentPeer.getId())) 
+						if(getStoreIds().contains(blocked))
+							removeLogFromStore(blocked);
+					
+				
+				updateStore(peerNews);
+			}
+			
+			state = State.FINISHED;
+		} 
+	}
+	
+	private void peerHandshake() {
+		Context<Object> context = ContextUtils.getContext(this);
+		Network<Object> net = (Network<Object>) context.getProjection("peer network");	
 		
 		int tickCount = (int) RunEnvironment.getInstance().getCurrentSchedule().getTickCount();
-		Context<Object> context = ContextUtils.getContext(this);
-		Network<Object> net = (Network<Object>) context.getProjection("handshake network");	
 		
-		if(state == AVAILABLE) {
+		if(state == State.AVAILABLE) {
 			currentPeer = pickRandomSyn();
 			if(currentPeer != null) {
-				System.out.println("Participant(" + label + "): sending ACK for SYN sent by " + currentPeer.getLabel());
+				System.out.println("Participant(" + label + "): sending ACK for SYN initiated by " + currentPeer.getLabel());
 				currentPeer.onHandshakeACK(new Handshake(tickCount, Handshake.SYN_ACK, this));
-				state = SYN_RECEIVED;
+				state = State.SYN_RECEIVED;
 				//add an edge between this partecipant and its peer
 				timeout = 2; //TODO: parametrize
 			} else {
 				double coinToss = RandomHelper.nextDoubleFromTo(0, 1);
 				if(coinToss <= probabilityOfHandshake) {
-					currentPeer = view.getRandom();
+					
+					do{//TODO: discuss -> is this a possible infinite loop?
+						currentPeer = view.getRandomPeer(); //pick a (non blocked) peer
+					}while(blocks.containsKey(this.id) && blocks.get(this.id).contains(currentPeer.getId()));
+					
 					System.out.println("Participant(" + label + "): sending SYN to " + currentPeer.getLabel());
 					currentPeer.onHandshakeSyn(new Handshake(tickCount, Handshake.SYN, this));
-					state = SYN_SENT;
+					state = State.SYN_SENT;
 					timeout = 2; //TODO: parametrize
 					net.addEdge(this, currentPeer);
 				}
@@ -183,13 +231,13 @@ public class Participant {
 			System.out.println("Participant(" + label + "): " + currentPeer.getLabel() + " didn't ACK in time, aborting...");
 			net.removeEdge(net.getEdge(this, currentPeer));
 			currentPeer = null;
-			state = AVAILABLE;
+			state = State.AVAILABLE;
 			handshakeSYNs.clear();
 			handshakeSYNs.clear();
-		} else if(state == SYN_SENT || state == SYN_RECEIVED) {
+		} else if(state == State.SYN_SENT || state == State.SYN_RECEIVED) {
 			timeout--;
 			if(establishConnection()) {
-				state = ESTABLISHED;
+				state = State.CONN_ESTABLISHED;
 				System.out.println("Participant(" + label + "): established connection to " + currentPeer.getLabel());
 				Map<PublicKey, Integer> myFrontier = getFrontierByIds(getStoreIds());
 				currentPeer.onEstablished(myFrontier);
@@ -197,85 +245,52 @@ public class Participant {
 				handshakeACKs.clear();
 				timeout = 2; //reset timeout
 			}
-		} else if(state == ESTABLISHED && peerFrontier != null) {
-			//if currentPeer is not blocked by me, exchange news. Otherwise, skip
-			if(!blocks.containsKey(this.id) || !blocks.get(this.id).contains(currentPeer.getPublicKey())) {
-				System.out.println("Participant(" + label + "): inspecting frontier from " + currentPeer.getLabel());
-				
-				for(Entry<PublicKey, Integer> entry : peerFrontier.entrySet()) {
-					PublicKey tempId = entry.getKey();
-					if(!store.containsKey(tempId)) {
-						addLogToStore(tempId);
-						frontier.put(tempId, -1);
-					}
+		} else if(state == State.CONN_ESTABLISHED && peerFrontier != null) {
+			
+			System.out.println("Participant(" + label + "): inspecting frontier from " + currentPeer.getLabel());
+			
+			for(Entry<PublicKey, Integer> entry : peerFrontier.entrySet()) {
+				PublicKey tempId = entry.getKey();
+				if(!store.containsKey(tempId)) {
+					addLogToStore(tempId);
+					frontier.put(tempId, -1);
 				}
-				
-				Map<PublicKey, List<Event>> news = getEventsSince(peerFrontier);
-				currentPeer.onNewsExchange(news);
-				
-				System.out.println("Participant(" + label + "): exchanging news from "
-						+ news.size() + "partecipant(s) with " + currentPeer.getLabel());
-			} else {
-				System.out.println("Participant(" + label + "): won't exchange with " + currentPeer.getLabel() + " because is a blocked participant");
 			}
 			
-			state = NEWS_EXCHANGED;
-		} else if(state == NEWS_EXCHANGED && peerNews != null) {
-			System.out.println("Participant(" + label + "): closing connection to " 
-					+ currentPeer.getLabel() + " and applying updates from " + peerNews.size() + " participants.");
+			Map<PublicKey, List<Event>> news = getEventsSince(peerFrontier);
+			currentPeer.onNewsExchange(news);
 			
-			//if currentPeer is not blocked by me, update with news. Otherwise, skip
-			if(!blocks.containsKey(this.id) || !blocks.get(this.id).contains(currentPeer.getPublicKey())) {
-				//Algorithm 3
-				//compute new follows and blocks
-				for(Entry<PublicKey, List<Event>> entry : peerNews.entrySet()) {
-					updateInterests(entry.getKey(), entry.getValue());
-				}
-				
-				// Line 3 of algorithm
-				if(follows.containsKey(currentPeer.getPublicKey()))
-					for(PublicKey followed : follows.get(currentPeer.getPublicKey())) {
-						if(!getStoreIds().contains(followed))
-							addLogToStore(followed);
-					}
-				
-				//Line 4 of algorithm
-				if(blocks.containsKey(currentPeer.getPublicKey()))
-					for(PublicKey blocked : blocks.get(currentPeer.getPublicKey())) {
-						if(getStoreIds().contains(blocked))
-							removeLogFromStore(blocked);
-					}
-				
-				updateStore(peerNews);
-			}
+			System.out.println("Participant(" + label + "): exchanging news from "
+					+ news.size() + "partecipant(s) with " + currentPeer.getLabel());
+		
 			
-
-			
-			state = FINISHED;
-		} else if(state == FINISHED) {
+			state = State.NEWS_EXCHANGED;
+		} else if(state == State.FINISHED) {
 			peerFrontier = null;
 			peerNews = null;
 			
-			System.out.println("Connection closed, current status: store = " + store.size() );
+			System.out.println("Connection closed to " + currentPeer.getLabel() 
+				+ ", current status: store = " + store.size() );
+			
 			for(PublicKey tempId : store.keySet()) {
 				System.out.println(getLogById(tempId).size());
 			}
 			
 			//remove link with current peer
 			net.removeEdge(net.getEdge(this, currentPeer));
-			state = AVAILABLE;
+			state = State.AVAILABLE;
 		}
 	}
 	
 	public void onHandshakeSyn(Handshake hs) {
 		//reject request if the participant is already involved in another handshake
-		if(state == AVAILABLE) 
+		if(state == State.AVAILABLE) 
 			handshakeSYNs.add(hs);
 	}
 	
 	public void onHandshakeACK(Handshake hs) {
 		//reject the ACK unless it is the expected ACK 
-		if((state == SYN_SENT || state == SYN_RECEIVED) && hs.getPeer().equals(currentPeer)) {
+		if((state == State.SYN_SENT || state == State.SYN_RECEIVED) && hs.getPeer().equals(currentPeer)) {
 			handshakeACKs.add(hs);
 		}
 	}
@@ -285,8 +300,15 @@ public class Participant {
 		// Filter eligible SYNs (those that were received in the past, current tick is excluded)
 		List<Handshake> eligibleSYNs = new ArrayList<>();
 		for(Handshake hs : handshakeSYNs) {
+			
 			if(hs.getSentAt() < tickCount)
-				eligibleSYNs.add(hs);
+				if(protocolVariant.equals("TRANSITIVE_INTEREST_GOSSIP")  
+						&& !(blocks.containsKey(this.id) && blocks.get(this.id).contains(currentPeer.getId()))) 
+				
+					eligibleSYNs.add(hs);
+			
+				else if(protocolVariant.equals("OPEN_GOSSIP"))
+					eligibleSYNs.add(hs);
 		}
 		
 		
@@ -314,10 +336,10 @@ public class Participant {
 		
 		if(ack.getSentAt() < tickCount) {
 			
-			if(ack.getType() == Handshake.SYN_ACK && state == SYN_SENT) {
+			if(ack.getType() == Handshake.SYN_ACK && state == State.SYN_SENT) {
 				currentPeer.onHandshakeACK(new Handshake(tickCount, Handshake.ACK, this));
 				established = true;
-			} else if(ack.getType() == Handshake.ACK && state == SYN_RECEIVED) {
+			} else if(ack.getType() == Handshake.ACK && state == State.SYN_RECEIVED) {
 				established = true;
 			}
 		}
@@ -511,22 +533,22 @@ public class Participant {
 	
 	
 	private void follow(PublicKey target) {
-		appendToLog(new Interest(target, InterestType.follow.getValue()));
+		appendToLog(new Interest(target, Interest.Type.FOLLOW));
 		addToFollows(this.id, target);
 	}
 	
 	private void unfollow(PublicKey target) {
-		appendToLog(new Interest(id, InterestType.unfollow.getValue()));
+		appendToLog(new Interest(id, Interest.Type.UNFOLLOW));
 		removeFromFollows(this.id, target);
 	}
 	
 	private void block(PublicKey target) {
-		appendToLog(new Interest(id, InterestType.block.getValue()));
+		appendToLog(new Interest(id, Interest.Type.BLOCK));
 		addToBlocks(this.id, target);
 	}
 	
 	private void unblock(PublicKey target) {
-		appendToLog(new Interest(id, InterestType.unblock.getValue()));
+		appendToLog(new Interest(id, Interest.Type.UNBLOCK));
 		removeFromBlocks(this.id, target);
 	}
 	
@@ -534,17 +556,19 @@ public class Participant {
 	private void updateInterests(PublicKey id, List<Event> news) {
 		for(Event e : news) {
 			if(e.getContent() instanceof Interest) {
-				if(((Interest)e.getContent()).getType() == InterestType.follow.getValue()) {
-					addToFollows(id, ((Interest)e.getContent()).getTarget());
+				Interest interest = (Interest)e.getContent();
+				
+				if(interest.getType() == Interest.Type.FOLLOW) {
+					addToFollows(id, interest.getTarget());
 				}
-				if(((Interest)e.getContent()).getType() == InterestType.unfollow.getValue()) {
-					removeFromFollows(id, ((Interest)e.getContent()).getTarget());
+				if(interest.getType() == Interest.Type.UNFOLLOW) {
+					removeFromFollows(id, interest.getTarget());
 				}
-				if(((Interest)e.getContent()).getType() == InterestType.block.getValue()) {
-					addToBlocks(id, ((Interest)e.getContent()).getTarget());
+				if(interest.getType() == Interest.Type.BLOCK) {
+					addToBlocks(id, interest.getTarget());
 				}
-				if(((Interest)e.getContent()).getType() == InterestType.unblock.getValue()) {
-					removeFromBlocks(id, ((Interest)e.getContent()).getTarget());
+				if(interest.getType() == Interest.Type.UNBLOCK) {
+					removeFromBlocks(id, interest.getTarget());
 				}
 			}
 		}
@@ -634,7 +658,7 @@ public class Participant {
 			}
 		}
 		
-		return tempParticipants.get(RandomHelper.nextIntFromTo(0, tempParticipants.size())).getPublicKey();
+		return tempParticipants.get(RandomHelper.nextIntFromTo(0, tempParticipants.size())).getId();
 	}
 	
 	public View getView() {
@@ -645,7 +669,7 @@ public class Participant {
 		this.view = view;
 	}
 	
-	public int getState() {
+	public State getState() {
 		return state;
 	}
 	
@@ -657,7 +681,7 @@ public class Participant {
 		return label;
 	}
 	
-	public PublicKey getPublicKey() {
+	public PublicKey getId() {
 		return id;
 	}
 	

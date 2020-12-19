@@ -32,7 +32,7 @@ public class View extends ArrayList<Participant> {
         return get(0);
     }
     
-    public Participant getRandom() {
+    public Participant getRandomPeer() {
     	int randomIndex = ThreadLocalRandom.current().nextInt(0, size());
     	return get(randomIndex);
     }

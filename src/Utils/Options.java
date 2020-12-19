@@ -5,6 +5,7 @@ import repast.simphony.parameter.Parameters;
 
 public class Options {
 	
+	public static String PROTOCOL_VARIANT;
 	public static double PROBABILITY_OF_PERTURBATION;
 	
 	public static int MAX_PARTICIPANT_COUNT;
@@ -42,5 +43,6 @@ public class Options {
 		RELAY_RANGE = params.getDouble("RELAY_RANGE");
 		PROBABILITY_TO_FOLLOW = params.getDouble("PROBABILITY_TO_FOLLOW");
 		PROBABILITY_TO_BLOCK = params.getDouble("PROBABILITY_TO_BLOCK");
+		PROTOCOL_VARIANT = "OPEN_GOSSIP"; //or OPEN_GOSSIP
 	}
 }

@@ -7,21 +7,22 @@ import org.apache.poi.hssf.util.HSSFColor.GREEN;
 
 import agents.DiscretePropagation;
 import agents.Participant;
+import agents.Participant.State;
 import repast.simphony.visualizationOGL2D.DefaultStyleOGL2D;
 import saf.v3d.scene.Position;
 
 public class ParticipantStyle extends DefaultStyleOGL2D{
 	@Override
     public Color getColor(Object o) {
-		if(((Participant)o).getState() == Participant.AVAILABLE) 
-			return Color.RED;
-		else if(((Participant)o).getState() == Participant.SYN_RECEIVED
-				|| ((Participant)o).getState() == Participant.SYN_SENT) 
-			return Color.ORANGE;
-		else if(((Participant)o).getState() == Participant.ESTABLISHED
-				|| ((Participant)o).getState() == Participant.NEWS_EXCHANGED)
+		if(((Participant)o).getState() == State.AVAILABLE) 
 			return Color.GREEN;
-		else if(((Participant)o).getState() == Participant.FINISHED)
+		else if(((Participant)o).getState() == State.SYN_RECEIVED
+				|| ((Participant)o).getState() == State.SYN_SENT) 
+			return Color.ORANGE;
+		else if(((Participant)o).getState() == State.CONN_ESTABLISHED
+				|| ((Participant)o).getState() == State.NEWS_EXCHANGED)
+			return Color.RED;
+		else if(((Participant)o).getState() == State.FINISHED)
 			return Color.GRAY;
 		
 		return Color.BLUE;

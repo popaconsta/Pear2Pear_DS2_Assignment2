@@ -15,13 +15,13 @@
   </editedStyles>
   <netStyles>
     <entry>
-      <string>handshake network</string>
+      <string>peer network</string>
       <string>custom_style.EdgeStyle</string>
     </entry>
   </netStyles>
   <editedNetStyles>
     <entry>
-      <string>handshake network</string>
+      <string>peer network</string>
       <null/>
     </entry>
   </editedNetStyles>
@@ -33,7 +33,7 @@
     <pType>LAST</pType>
     <duration>-1.0</duration>
     <frequency>REPEAT</frequency>
-    <hashCode>693356851</hashCode>
+    <hashCode>-888261781</hashCode>
   </schedParams>
   <layoutClassName>foo.bar.baz</layoutClassName>
   <layoutProjection>space</layoutProjection>
@@ -51,7 +51,7 @@
       <type>continuous space</type>
     </repast.simphony.scenario.data.ProjectionData>
     <repast.simphony.scenario.data.ProjectionData>
-      <id>handshake network</id>
+      <id>peer network</id>
       <attributes/>
       <type>network</type>
     </repast.simphony.scenario.data.ProjectionData>
@@ -61,7 +61,7 @@
   </visualizationProperties>
   <projectionDescriptors>
     <entry>
-      <string>handshake network</string>
+      <string>peer network</string>
       <repast.simphony.visualization.engine.DefaultProjectionDescriptor>
         <proj reference="../../../../projections/repast.simphony.scenario.data.ProjectionData[2]"/>
         <props/>

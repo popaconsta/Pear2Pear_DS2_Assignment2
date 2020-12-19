@@ -87,7 +87,7 @@ public class TopologyManager {
 		availableLocations.add(space.getLocation(participant)); //mark the location of the crashed node as available
 		currentRelayNum--;
 		//Remove the edges which are connected to the crashed node
-		Network<Object> net = (Network<Object>) context.getProjection("delivery network"); 
+		Network<Object> net = (Network<Object>) context.getProjection("peer network"); 
 		CopyOnWriteArrayList<RepastEdge<Object>> edges = new CopyOnWriteArrayList<>(); //thread-safe method
 		net.getOutEdges(participant).forEach(edges::add);
 		//Iterate through edges and remove them
