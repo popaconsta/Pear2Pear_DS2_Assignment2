@@ -8,13 +8,13 @@ public class Interest {
 		FOLLOW, UNFOLLOW, BLOCK, UNBLOCK;
 	}
 	
-	private PublicKey id;
+	private PublicKey targetId;
 	private Type type;
 	
 	
 	
 	public Interest(PublicKey id, Type type) {
-		this.id = id;
+		this.targetId = id;
 		this.type = type;
 	}
 	
@@ -22,7 +22,7 @@ public class Interest {
 		return this.type;
 	}
 	
-	public PublicKey getTarget() {
-		return this.id;
+	public PublicKey getTargetId() {
+		return this.targetId;
 	}
 }

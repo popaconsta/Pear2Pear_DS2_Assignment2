@@ -96,37 +96,43 @@ public class Participant {
 		if(coinToss <= probabilityOfNewEvent) { //propagate a value broadcast perturbation	
 			appendToLog(new String("ciao"));
 		} 
-//		else if (coinToss <= probabilityOfNewEvent + Options.PROBABILITY_TO_FOLLOW) {
-//			
-//			//follow one random participant followed by someone i already follow; if cannot find, pick a random one
-//			PublicKey temp = pickRandomFollowed();
-//			PublicKey target = null;
-//			if(temp != null) {
-//				target = pickRandomFollowedHop(temp);
-//				if(target == null) {
-//					target = pickRandomParticipant();
-//				}
-//			} else {
-//				target = pickRandomParticipant();
-//			}
-//			follow(target);
-//			
-//		} else if (coinToss <= probabilityOfNewEvent + Options.PROBABILITY_TO_FOLLOW + Options.PROBABILITY_TO_BLOCK) {
-//			
-//			//block one random participant blocked by someone i follow; if cannot find, pick a random one
-//			PublicKey temp = pickRandomFollowed();
-//			PublicKey target = null;
-//			if(temp != null) {
-//				target = pickRandomBlockedHop(temp);
-//				if(target == null) {
-//					target = pickRandomParticipant();
-//				}
-//			} else {
-//				target = pickRandomParticipant();
-//			}
-//			block(target);
-//			
-//		}
+		else if (coinToss <= probabilityOfNewEvent + Options.PROBABILITY_TO_FOLLOW) {
+			
+			//follow one random participant followed by someone i already follow; if cannot find, pick a random one
+			PublicKey temp = pickRandomFollowing();
+			Participant target = null;
+			if(temp != null) {
+				target = pickRandomTransitivelyFollowed(temp);
+				if(target == null) {
+					target = view.getRandomPeer();
+				}
+			} else {
+				target = view.getRandomPeer();
+			}
+			
+			follow(target.getId());
+			
+		} else if (coinToss <= probabilityOfNewEvent + Options.PROBABILITY_TO_FOLLOW + Options.PROBABILITY_TO_BLOCK) {
+			
+			//block one random participant blocked by someone I follow; if cannot find, pick a random one
+			PublicKey friendId = pickRandomFollowing();
+			Participant target = null;
+			if(friendId != null) {
+				target = pickRandomTransitivelyBlocked(friendId);
+				if(target == null) {
+					target = view.getRandomPeer();
+				}
+			} else {
+				target = view.getRandomPeer();
+			}
+			
+			if(target != null )
+				if(currentPeer != null && target.equals(currentPeer))
+					return;
+				else
+					block(target.getId());
+			
+		}
 		
 	}
 	
@@ -185,10 +191,10 @@ public class Participant {
 					
 				
 				//Line 4 of algorithm
-				if(blocks.containsKey(currentPeer.getId()))
-					for(PublicKey blocked : blocks.get(currentPeer.getId())) 
-						if(getStoreIds().contains(blocked))
-							removeLogFromStore(blocked);
+//				if(blocks.containsKey(currentPeer.getId()))
+//					for(PublicKey blocked : blocks.get(currentPeer.getId())) 
+//						if(getStoreIds().contains(blocked))
+//							removeLogFromStore(blocked);
 					
 				
 				updateStore(peerNews);
@@ -278,6 +284,7 @@ public class Participant {
 			
 			//remove link with current peer
 			net.removeEdge(net.getEdge(this, currentPeer));
+			currentPeer = null;
 			state = State.AVAILABLE;
 		}
 	}
@@ -303,7 +310,8 @@ public class Participant {
 			
 			if(hs.getSentAt() < tickCount)
 				if(protocolVariant.equals("TRANSITIVE_INTEREST_GOSSIP")  
-						&& !(blocks.containsKey(this.id) && blocks.get(this.id).contains(currentPeer.getId()))) 
+						&& !(blocks.containsKey(this.id) 
+						&& blocks.get(this.id).contains(hs.getPeer().getId()))) 
 				
 					eligibleSYNs.add(hs);
 			
@@ -383,21 +391,21 @@ public class Participant {
 	    List<Event> log = getLogById(news.get(0).getId());
 	    for(Event e : news) {
 	    	Integer lastIndex = frontier.get(news.get(0).getId());
-	    	lastIndex = lastIndex == null ? -1 : lastIndex;
+	    	lastIndex = (lastIndex == null) ? -1 : lastIndex;
+	    	System.out.println(label  + " log len "  + log.size() + " for " 
+	    	+ TopologyManager.getParticipantById(news.get(0).getId()).getLabel());
 	    	Integer previous = lastIndex == -1 ? 0 : log.get(lastIndex).hashCode();
 	    	
 	    	System.out.println("last " + lastIndex + "idx " 
 	    	+ e.getIndex() + " prev " + e.getPrevious() + " prv " + previous + " " + e.isSignatureVerified());
 	    	System.out.println((e.getIndex().equals(lastIndex + 1)) 
 	    			+ "\n" + (previous.equals(e.getPrevious()))
-	    			+ "\n" + (e.isSignatureVerified())
-	    			+ "\n------------------------------------");
+	    			+ "\n" + (e.isSignatureVerified()));
 	    	
 	    	if(e.getIndex().equals(lastIndex + 1)
 	    			&& previous.equals(e.getPrevious())
 	    			&& e.isSignatureVerified()) {
-	    		System.out.println("Participant(" + label + "): applying update "
-	    				+ "#" + e.getIndex());
+	    		System.out.println("Participant(" + label + "): applying update " + "#" + e.getIndex()+"\n--------");
 				
 	    		log.add(e);
 	    		frontier.put(e.getId(), e.getIndex());
@@ -499,7 +507,7 @@ public class Participant {
 					eventsById.add(e);
 				}
 			}
-			System.out.println("events by id size" + eventsById.size());
+			//System.out.println("events by id size" + eventsById.size());
 			events.put(tempId, eventsById);
 		}
 		
@@ -514,10 +522,11 @@ public class Participant {
 				+ news.size() + " participant(s)");
 		
 		for(PublicKey tempId : news.keySet()) {
-			System.out.println("news by id size" + news.get(tempId).size());
+			//System.out.println("news by id size" + news.get(tempId).size());
 			List<Event> newsById = news.get(tempId); //new events
 			//List<Event> log = get(tempId); //target log for append operations
 			updateLog(newsById);
+			view.add(TopologyManager.getParticipantById(tempId));
 		}
 	}
 	
@@ -532,24 +541,36 @@ public class Participant {
 	 */
 	
 	
-	private void follow(PublicKey target) {
-		appendToLog(new Interest(target, Interest.Type.FOLLOW));
-		addToFollows(this.id, target);
+	private void follow(PublicKey targetId) {
+		System.out.println("Participant(" + label + "): following " 
+			+ TopologyManager.getParticipantById(targetId).getLabel());
+		
+		appendToLog(new Interest(targetId, Interest.Type.FOLLOW));
+		addToFollows(this.id, targetId);
 	}
 	
-	private void unfollow(PublicKey target) {
-		appendToLog(new Interest(id, Interest.Type.UNFOLLOW));
-		removeFromFollows(this.id, target);
+	private void unfollow(PublicKey targetId) {
+		System.out.println("Participant(" + label + "): following " 
+				+ TopologyManager.getParticipantById(targetId).getLabel());
+			
+		appendToLog(new Interest(targetId, Interest.Type.UNFOLLOW));
+		removeFromFollows(this.id, targetId);
 	}
 	
-	private void block(PublicKey target) {
-		appendToLog(new Interest(id, Interest.Type.BLOCK));
-		addToBlocks(this.id, target);
+	private void block(PublicKey targetId) {
+		System.out.println("Participant(" + label + "): following " 
+				+ TopologyManager.getParticipantById(targetId).getLabel());
+			
+		appendToLog(new Interest(targetId, Interest.Type.BLOCK));
+		addToBlocks(this.id, targetId);
 	}
 	
-	private void unblock(PublicKey target) {
-		appendToLog(new Interest(id, Interest.Type.UNBLOCK));
-		removeFromBlocks(this.id, target);
+	private void unblock(PublicKey targetId) {
+		System.out.println("Participant(" + label + "): following " 
+				+ TopologyManager.getParticipantById(targetId).getLabel());
+			
+		appendToLog(new Interest(targetId, Interest.Type.UNBLOCK));
+		removeFromBlocks(this.id, targetId);
 	}
 	
 	
@@ -559,16 +580,16 @@ public class Participant {
 				Interest interest = (Interest)e.getContent();
 				
 				if(interest.getType() == Interest.Type.FOLLOW) {
-					addToFollows(id, interest.getTarget());
+					addToFollows(id, interest.getTargetId());
 				}
 				if(interest.getType() == Interest.Type.UNFOLLOW) {
-					removeFromFollows(id, interest.getTarget());
+					removeFromFollows(id, interest.getTargetId());
 				}
 				if(interest.getType() == Interest.Type.BLOCK) {
-					addToBlocks(id, interest.getTarget());
+					addToBlocks(id, interest.getTargetId());
 				}
 				if(interest.getType() == Interest.Type.UNBLOCK) {
-					removeFromBlocks(id, interest.getTarget());
+					removeFromBlocks(id, interest.getTargetId());
 				}
 			}
 		}
@@ -576,90 +597,90 @@ public class Participant {
 	
 	
 	// Note up that id follows target; if target is blocked, unblock
-	private void addToFollows(PublicKey id, PublicKey target) {
+	private void addToFollows(PublicKey id, PublicKey targetId) {
 		
-		if(blocks.containsKey(id) && blocks.get(id).contains(target)) {
-			unblock(target);
+		if(blocks.containsKey(id) && blocks.get(id).contains(targetId)) {
+			unblock(targetId);
 		}
 		if(!follows.containsKey(id)) {
 			follows.put(id, new ArrayList<>());
 		}
 				
-		if(!follows.get(id).contains(target)) {
-			follows.get(id).add(target);
+		if(!follows.get(id).contains(targetId)) {
+			follows.get(id).add(targetId);
 		}
 	}
 	
 	// Note up that id does not follow target anymore
-	private void removeFromFollows(PublicKey id, PublicKey target) {
-		if(follows.containsKey(id) && follows.get(id).contains(target)) {
-			follows.get(id).remove(target);
+	private void removeFromFollows(PublicKey id, PublicKey targetId) {
+		if(follows.containsKey(id) && follows.get(id).contains(targetId)) {
+			follows.get(id).remove(targetId);
 		}
 	}
 	
 	// Note up that id blocks target; if target is followed, unfollow
-	private void addToBlocks(PublicKey id, PublicKey target) {
+	private void addToBlocks(PublicKey id, PublicKey targetId) {
 		
-		if(follows.containsKey(id) && follows.get(id).contains(target)) {
-			unfollow(target);
+		if(follows.containsKey(id) && follows.get(id).contains(targetId)) {
+			unfollow(targetId);
 		}
 		if(!blocks.containsKey(id)) {
 			blocks.put(id, new ArrayList<>());
 		}
 		
-		if(!blocks.get(id).contains(target)) {
-			blocks.get(id).add(target);
+		if(!blocks.get(id).contains(targetId)) {
+			blocks.get(id).add(targetId);
 		}
 	}
 	
 	//Note up that id odes not block target anymore
-	private void removeFromBlocks(PublicKey id, PublicKey target) {
-		if(blocks.containsKey(id) && blocks.get(id).contains(target)) {
-			blocks.get(id).remove(target);
+	private void removeFromBlocks(PublicKey id, PublicKey targetId) {
+		if(blocks.containsKey(id) && blocks.get(id).contains(targetId)) {
+			blocks.get(id).remove(targetId);
 		}
 	}
 	
-	private PublicKey pickRandomFollowed() {
+	private PublicKey pickRandomFollowing() {
 		if(follows.containsKey(this.id) && !follows.get(this.id).isEmpty()) {
-			int index = RandomHelper.nextIntFromTo(0, follows.get(this.id).size());
+			int index = RandomHelper.nextIntFromTo(0, follows.get(this.id).size() - 1);
 			return follows.get(this.id).get(index);
 		} else {
 			return null;
 		}
 	}
 	
-	private PublicKey pickRandomFollowedHop(PublicKey friend) {
-		if(follows.containsKey(friend) && !follows.get(friend).isEmpty()) {
-			int index = RandomHelper.nextIntFromTo(0, follows.get(friend).size());
-			return follows.get(friend).get(index);
+	private Participant pickRandomTransitivelyFollowed(PublicKey friendId) {
+		if(follows.containsKey(friendId) && !follows.get(friendId).isEmpty()) {
+			int index = RandomHelper.nextIntFromTo(0, follows.get(friendId).size() - 1);
+			return TopologyManager.getParticipantById(follows.get(friendId).get(index));
 		} else {
 			return null;
 		}
 	}
 	
-	private PublicKey pickRandomBlockedHop(PublicKey friend) {
-		if(blocks.containsKey(friend) && !blocks.get(friend).isEmpty()) {
-			int index = RandomHelper.nextIntFromTo(0, blocks.get(friend).size());
-			return blocks.get(friend).get(index);
+	private Participant pickRandomTransitivelyBlocked(PublicKey friendId) {
+		if(blocks.containsKey(friendId) && !blocks.get(friendId).isEmpty()) {
+			int index = RandomHelper.nextIntFromTo(0, blocks.get(friendId).size() - 1);
+			return TopologyManager.getParticipantById(blocks.get(friendId).get(index));
 		} else {
 			return null;
 		}
 	}
 	
-	private PublicKey pickRandomParticipant() {
-		Context<Object> context = ContextUtils.getContext(this);
-		List<Participant> tempParticipants = new ArrayList<>();
-		
-		for(Object obj : context) {
-			if(obj instanceof Participant) {
-				if(!obj.equals(this)) {
-					tempParticipants.add((Participant)obj);
-				}
-			}
-		}
-		
-		return tempParticipants.get(RandomHelper.nextIntFromTo(0, tempParticipants.size())).getId();
-	}
+//	private PublicKey pickRandomParticipant() {
+//		Context<Object> context = ContextUtils.getContext(this);
+//		List<Participant> tempParticipants = new ArrayList<>();
+//		
+//		for(Object obj : context) {
+//			if(obj instanceof Participant) {
+//				if(!obj.equals(this)) {
+//					tempParticipants.add((Participant)obj);
+//				}
+//			}
+//		}
+//		
+//		return tempParticipants.get(RandomHelper.nextIntFromTo(0, tempParticipants.size())).getId();
+//	}
 	
 	public View getView() {
 		return view;
@@ -683,6 +704,26 @@ public class Participant {
 	
 	public PublicKey getId() {
 		return id;
+	}
+	
+	@Override
+	public boolean equals(Object obj) { 
+        if (obj == this) { 
+            return true; 
+        } 
+  
+        if (!(obj instanceof Participant)) { 
+            return false; 
+        } 
+          
+        // typecast o to Complex so that we can compare data members  
+        Participant p = (Participant) obj; 
+        
+        if(p.getId().equals(this.id))
+        	return true;
+        else
+        	return false;
+        		
 	}
 	
 	
