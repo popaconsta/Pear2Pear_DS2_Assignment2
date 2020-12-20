@@ -62,8 +62,6 @@ public class Participant {
 	private Map<PublicKey, List<PublicKey>> follows;
 	private Map<PublicKey, List<PublicKey>> blocks;
 	
-	//Relays generate perturbations with a given probability value
-	private double probabilityOfNewEvent;
 	private double probabilityOfHandshake = 0.2; //TODO:parametrize
 	
 	private double logPercentage;
@@ -83,7 +81,6 @@ public class Participant {
 		handshakeACKs = new ArrayList<>();
 		store = new HashMap<>();
 		frontier = new HashMap<>();
-		probabilityOfNewEvent = Options.PROBABILITY_OF_PERTURBATION;
 		protocolVariant = Options.PROTOCOL_VARIANT;
 		follows = new HashMap<>();
 		blocks = new HashMap<>();
@@ -99,10 +96,10 @@ public class Participant {
 	public void generateEvent() {
 		double coinToss = RandomHelper.nextDoubleFromTo(0, 1);
 		//Generate a broadcast with one fourth of the probability
-		if(coinToss <= probabilityOfNewEvent) { //propagate a value broadcast perturbation	
+		if(coinToss <= Options.PROBABILITY_OF_PERTURBATION) { //propagate a value broadcast perturbation	
 			appendToLog(new String("ciao"));
 		} 
-		else if (coinToss <= probabilityOfNewEvent + Options.PROBABILITY_TO_FOLLOW) {
+		else if (coinToss <= Options.PROBABILITY_OF_PERTURBATION + Options.PROBABILITY_TO_FOLLOW && Options.PROTOCOL_VARIANT.equals("TRANSITIVE_INTEREST_GOSSIP")) {
 			
 			//follow one random participant followed by someone i already follow; if cannot find, pick a random one
 			PublicKey temp = pickRandomFollowing();
@@ -119,7 +116,7 @@ public class Participant {
 			if(target != null)
 				follow(target.getId());
 			
-		} else if (coinToss <= probabilityOfNewEvent + Options.PROBABILITY_TO_FOLLOW + Options.PROBABILITY_TO_BLOCK) {
+		} else if (coinToss <= Options.PROBABILITY_OF_PERTURBATION + Options.PROBABILITY_TO_FOLLOW + Options.PROBABILITY_TO_BLOCK && Options.PROTOCOL_VARIANT.equals("TRANSITIVE_INTEREST_GOSSIP")) {
 			
 			//block one random participant blocked by someone I follow; if cannot find, pick a random one
 			PublicKey friendId = pickRandomFollowing();
@@ -198,10 +195,10 @@ public class Participant {
 					
 				
 				//Line 4 of algorithm
-//					if(blocks.containsKey(currentPeer.getId()))
-//						for(PublicKey blocked : blocks.get(currentPeer.getId())) 
-//							if(getStoreIds().contains(blocked))
-//								removeLogFromStore(blocked);
+					if(blocks.containsKey(currentPeer.getId()))
+						for(PublicKey blocked : blocks.get(currentPeer.getId())) 
+							if(getStoreIds().contains(blocked) && follows.containsKey(this.id) && !follows.get(this.id).contains(blocked))
+								removeLogFromStore(blocked);
 					
 				
 				updateStore(peerNews);
@@ -567,19 +564,22 @@ public class Participant {
 		
 		for(Map.Entry<PublicKey, Integer> entry : globalFrontier.entrySet()) {
 			if(!blocks.containsKey(this.id) || !blocks.get(this.id).contains(entry.getKey())) {
-				totalOfLogs += entry.getValue();
+				if(entry.getValue() >= 0)
+					totalOfLogs += entry.getValue();
 			}
 		}
 		
 		for(Map.Entry<PublicKey, Integer> entry : this.frontier.entrySet()) {
-			if(entry.getValue() >= 0)
+			if(entry.getValue() >= 0 && globalFrontier.containsKey(entry.getKey()))
 				myLogs += entry.getValue();
 		}
 		
 		System.out.println("MYLOGS: " + myLogs + "    TOTAL_LOGS: " + totalOfLogs);
 		
-		this.logPercentage = (myLogs / totalOfLogs)*100;
-		
+		if(totalOfLogs > 0)
+			this.logPercentage = (myLogs / totalOfLogs)*100;
+		else
+			this.logPercentage = 0;
 	}
 	
 	/*
@@ -777,7 +777,7 @@ public class Participant {
 	}
 	
 	public String getPercentage() {
-		DecimalFormat df = new DecimalFormat("#.##");
+		DecimalFormat df = new DecimalFormat("#");
 		return (df.format(logPercentage));
 	}
 	

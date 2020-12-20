@@ -271,7 +271,14 @@ public class TopologyManager {
 	
 	@ScheduledMethod(start = 100, interval = 25)
 	public static void calculatePercentages() {
-		 globalFrontier = new HashMap<>();
+		 
+		//Options.PROBABILITY_OF_PERTURBATION = 0;
+		//Options.PROBABILITY_TO_FOLLOW = 0;
+		//Options.PROBABILITY_TO_BLOCK = 0;
+		//Options.JOIN_PROBABILITY = 0;
+		//Options.CRASH_PROBABILITY = 0;
+		
+		globalFrontier = new HashMap<>();
 		 
 		 //calculating global frontier
 		 for(Participant p : currentParticipants) {
