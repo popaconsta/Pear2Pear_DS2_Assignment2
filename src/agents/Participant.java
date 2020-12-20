@@ -63,7 +63,7 @@ public class Participant {
 	
 	//Relays generate perturbations with a given probability value
 	private double probabilityOfNewEvent;
-	private double probabilityOfHandshake = 0.15; //TODO:parametrize
+	private double probabilityOfHandshake = 0.2; //TODO:parametrize
 	
 	public Participant(PublicKey id, PrivateKey privateKey, String label) {
 		super();
@@ -71,7 +71,7 @@ public class Participant {
 		this.privateKey = privateKey;
 		this.label = label;
 		
-		view = new View(Options.MAX_PARTICIPANT_COUNT / 4); //each view contains a quarter of the participants
+		//view = new View(label, Options.MAX_PARTICIPANT_COUNT); //each view contains a quarter of the participants
 		timeout = 0;
 		state = State.AVAILABLE;
 		crashed = false;
@@ -112,7 +112,8 @@ public class Participant {
 				target = view.getRandomPeer();
 			}
 			
-			follow(target.getId());
+			if(target != null)
+				follow(target.getId());
 			
 		} else if (coinToss <= probabilityOfNewEvent + Options.PROBABILITY_TO_FOLLOW + Options.PROBABILITY_TO_BLOCK) {
 			
@@ -214,6 +215,7 @@ public class Participant {
 				System.out.println("Participant(" + label + "): sending ACK for SYN initiated by " + currentPeer.getLabel());
 				currentPeer.onHandshakeACK(new Handshake(tickCount, Handshake.SYN_ACK, this));
 				state = State.SYN_RECEIVED;
+				view.add(TopologyManager.getParticipantById(currentPeer.getId()), tickCount);
 				//add an edge between this partecipant and its peer
 				timeout = 2; //2 ticks to receive back frontier //TODO: parametrize
 			} else {
@@ -222,18 +224,21 @@ public class Participant {
 					
 					do{//TODO: discuss -> is this a possible infinite loop?
 						currentPeer = view.getRandomPeer(); //pick a (non blocked) peer
-					}while(blocks.containsKey(this.id) && blocks.get(this.id).contains(currentPeer.getId()));
+					}while(currentPeer != null 
+							&& blocks.containsKey(this.id) 
+							&& blocks.get(this.id).contains(currentPeer.getId()));
 					
-					System.out.println("Participant(" + label + "): sending SYN to " + currentPeer.getLabel());
-					currentPeer.onHandshakeSyn(new Handshake(tickCount, Handshake.SYN, this));
-					state = State.SYN_SENT;
-					timeout = 2; //2 ticks to receive back ACK //TODO: parametrize
-					TopologyManager.addEdge(this, currentPeer);
+					if(currentPeer != null) {
+						System.out.println("Participant(" + label + "): sending SYN to " + currentPeer.getLabel());
+						currentPeer.onHandshakeSyn(new Handshake(tickCount, Handshake.SYN, this));
+						state = State.SYN_SENT;
+						timeout = 2; //2 ticks to receive back ACK //TODO: parametrize
+						TopologyManager.addEdge(this, currentPeer);
+					}
 				}
 			}	
 		} else if(timeout < 0) {
 			System.out.println("Participant(" + label + "): " + currentPeer.getLabel() + " didn't reply in time, aborting...");
-			System.out.println("removin 2");
 			TopologyManager.removeEdge(this, currentPeer);
 			currentPeer = null;
 			state = State.AVAILABLE;
@@ -243,6 +248,7 @@ public class Participant {
 			timeout--;
 			if(establishConnection()) {
 				state = State.CONN_ESTABLISHED;
+				view.updateLastSeen(currentPeer.getId(), tickCount);
 				System.out.println("Participant(" + label + "): established connection to " + currentPeer.getLabel());
 				Map<PublicKey, Integer> myFrontier = getFrontierByIds(getStoreIds());
 				currentPeer.onEstablished(myFrontier);
@@ -282,7 +288,6 @@ public class Participant {
 			for(PublicKey tempId : store.keySet()) {
 				System.out.println(getLogById(tempId).size());
 			}
-			System.out.println("removin 1");
 			//remove link with current peer
 			TopologyManager.removeEdge(this, currentPeer);
 			currentPeer = null;
@@ -304,11 +309,12 @@ public class Participant {
 	}
 	
 	private Participant pickRandomSyn() {
+	
 		int tickCount = (int) RunEnvironment.getInstance().getCurrentSchedule().getTickCount();
 		// Filter eligible SYNs (those that were received in the past, current tick is excluded)
 		List<Handshake> eligibleSYNs = new ArrayList<>();
 		for(Handshake hs : handshakeSYNs) {
-			
+			System.out.println(label + " received syn from " + hs.getPeer().getLabel());
 			if(hs.getSentAt() < tickCount)
 				if(protocolVariant.equals("TRANSITIVE_INTEREST_GOSSIP")  
 						&& !(blocks.containsKey(this.id) 
@@ -320,6 +326,9 @@ public class Participant {
 					eligibleSYNs.add(hs);
 		}
 		
+		if(blocks.get(id) != null)
+			for(PublicKey b : blocks.get(id))
+				System.out.println(label + " blocked " + TopologyManager.getParticipantById(b).getLabel());
 		
 		if(eligibleSYNs.size() == 0)
 			return null;
@@ -393,15 +402,15 @@ public class Participant {
 	    for(Event e : news) {
 	    	Integer lastIndex = frontier.get(news.get(0).getId());
 	    	lastIndex = (lastIndex == null) ? -1 : lastIndex;
-	    	System.out.println(label  + " log len "  + log.size() + " for " 
-	    	+ TopologyManager.getParticipantById(news.get(0).getId()).getLabel());
+//	    	System.out.println(label  + " log len "  + log.size() + " for " 
+//	    			+ TopologyManager.getParticipantById(news.get(0).getId()).getLabel());
 	    	Integer previous = lastIndex == -1 ? 0 : log.get(lastIndex).hashCode();
 	    	
-	    	System.out.println("last " + lastIndex + "idx " 
-	    	+ e.getIndex() + " prev " + e.getPrevious() + " prv " + previous + " " + e.isSignatureVerified());
-	    	System.out.println((e.getIndex().equals(lastIndex + 1)) 
-	    			+ "\n" + (previous.equals(e.getPrevious()))
-	    			+ "\n" + (e.isSignatureVerified()));
+//	    	System.out.println("last " + lastIndex + "idx " 
+//	    	+ e.getIndex() + " prev " + e.getPrevious() + " prv " + previous + " " + e.isSignatureVerified());
+//	    	System.out.println((e.getIndex().equals(lastIndex + 1)) 
+//	    			+ "\n" + (previous.equals(e.getPrevious()))
+//	    			+ "\n" + (e.isSignatureVerified()));
 	    	
 	    	if(e.getIndex().equals(lastIndex + 1)
 	    			&& previous.equals(e.getPrevious())
@@ -450,6 +459,7 @@ public class Participant {
 	 */
 	private void removeLogFromStore(PublicKey id) {
 		store.remove(id);
+		frontier.remove(id);
 	}
 	
 	/* 
@@ -499,8 +509,8 @@ public class Participant {
 		for(Entry<PublicKey, Integer> entry : frontier.entrySet()) {
 			PublicKey tempId = entry.getKey();
 			Integer tempSince = entry.getValue();
-			if(tempId.equals(id))
-				System.out.println(label + " temp since " + tempSince);
+//			if(tempId.equals(id))
+//				System.out.println(label + " temp since " + tempSince);
 			List<Event> log = getLogById(tempId);
 			List<Event> eventsById = new ArrayList<>();
 			for(Event e : log) {
@@ -527,8 +537,10 @@ public class Participant {
 			List<Event> newsById = news.get(tempId); //new events
 			//List<Event> log = get(tempId); //target log for append operations
 			updateLog(newsById);
-			System.out.println("view add 1 " + TopologyManager.getParticipantById(tempId));
-			view.add(TopologyManager.getParticipantById(tempId));
+			
+			//update participant still alive
+			int tickCount = (int) RunEnvironment.getInstance().getCurrentSchedule().getTickCount();
+			view.updateLastSeen(tempId, tickCount);
 		}
 	}
 	
@@ -683,6 +695,12 @@ public class Participant {
 			crashed = true;
 			TopologyManager.removeParticipant(this);
 		}
+	}
+	
+	@ScheduledMethod(start=200, interval=200, priority=20) 
+	public void cleanUpView() {
+		int tickCount = (int) RunEnvironment.getInstance().getCurrentSchedule().getTickCount();
+		view.cleanUp(tickCount, label);
 	}
 	
 //	private PublicKey pickRandomParticipant() {

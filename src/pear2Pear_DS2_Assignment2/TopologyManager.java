@@ -17,6 +17,7 @@ import agents.View;
 import repast.simphony.context.Context;
 import repast.simphony.context.space.continuous.ContinuousSpaceFactory;
 import repast.simphony.context.space.continuous.ContinuousSpaceFactoryFinder;
+import repast.simphony.engine.environment.RunEnvironment;
 import repast.simphony.engine.schedule.ScheduledMethod;
 import repast.simphony.random.RandomHelper;
 import repast.simphony.space.continuous.ContinuousSpace;
@@ -41,7 +42,7 @@ public class TopologyManager {
 
     // static method to initialize the topology manager
     public static void initialize(Context<Object> ctx) { 
-     
+    	int tickCount = (int) RunEnvironment.getInstance().getCurrentSchedule().getTickCount();
     	availableLocations = new ArrayList<>(); //instantiate the list
     	currentParticipants = new CopyOnWriteArrayList<Participant>();
     	allTimeParticipants = new HashMap<>();
@@ -86,8 +87,10 @@ public class TopologyManager {
 		//Initialize participants view
 		for (int i = 0; i < Options.MAX_PARTICIPANT_COUNT; i++) {
 			context.add(currentParticipants.get(i));
-			for(int j = 0; j < Options.MAX_PARTICIPANT_COUNT / 4; j++) 
-				currentParticipants.get(i).getView().add(currentParticipants.get((i + j + 1) % Options.MAX_PARTICIPANT_COUNT));
+			View view = new View(Integer.toString(i), Options.MAX_PARTICIPANT_COUNT - 1);
+			for(int j = 0; j < Options.MAX_PARTICIPANT_COUNT - 1; j++) 
+				view.add(currentParticipants.get((i + j + 1) % Options.MAX_PARTICIPANT_COUNT), 0);
+			currentParticipants.get(i).setView(view);
 		}
     	nextId = Options.MAX_PARTICIPANT_COUNT; //initially the next id is the initial amount of relays
     	currentPeerNum = Options.MAX_PARTICIPANT_COUNT;
@@ -166,13 +169,14 @@ public class TopologyManager {
 				KeyManager.generateKeys(nextId);
 				System.out.println("Participant(" + nextId + ") is joining the context");
 				
-				View view = new View(currentPeerNum/4);
+				View view = new View(Integer.toString(nextId), currentPeerNum);
 				List<Participant> randomPeers = new ArrayList<>(currentParticipants);
 				Collections.shuffle(randomPeers);
-				for(int j=0; j<currentPeerNum/4; j++) {
+				for(int j=0; j<currentPeerNum; j++) {
 					Participant p = randomPeers.get(j);
+					int tickCount = (int) RunEnvironment.getInstance().getCurrentSchedule().getTickCount();
 					if(p != null)
-						view.add(p);
+						view.add(p, tickCount);
 				}
 				
 				//Place the new relay in the context
