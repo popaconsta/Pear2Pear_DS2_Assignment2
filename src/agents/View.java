@@ -17,10 +17,16 @@ public class View extends ArrayList<Participant> {
     }
 
     public boolean add(Participant p){
+    	if(p == null)
+    		System.out.println("tried to add nul");
     	//avoid adding same participant twice in the view
-    	for(int i=0; i<size(); i++) 
-    		if(get(i).equals(p))
-    			remove(p);
+    	int index = -1;
+    	for(int i=0; i<size() && index == -1; i++) 
+    		if(get(i).equals(p)) 
+    			index = i;
+    	
+    	if(index != -1)
+    		remove(index);
     	
     	boolean r = super.add(p);
         if (size() > maxSize){

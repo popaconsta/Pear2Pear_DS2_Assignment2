@@ -50,6 +50,7 @@ public class Participant {
 	private Map<PublicKey, Integer> frontier; //reference of next expected event for each participant
 	private State state;
 	private int timeout;
+	boolean crashed;
 	
 	private List<Handshake> handshakeSYNs;
 	private List<Handshake> handshakeACKs;
@@ -73,6 +74,7 @@ public class Participant {
 		view = new View(Options.MAX_PARTICIPANT_COUNT / 4); //each view contains a quarter of the participants
 		timeout = 0;
 		state = State.AVAILABLE;
+		crashed = false;
 		currentPeer = null;
 		handshakeSYNs = new ArrayList<>();
 		handshakeACKs = new ArrayList<>();
@@ -171,11 +173,11 @@ public class Participant {
 			
 			peerHandshake();
 			
-		} else if(state == State.NEWS_EXCHANGED && peerNews != null) {
-			System.out.println("Participant(" + label + "): applying updates from " + peerNews.size() + " participants.");
+		} else if(state == State.NEWS_EXCHANGED) {
+			timeout--;
 			
-			//if currentPeer is not blocked by me, update with news. Otherwise, skip
-			if(!blocks.containsKey(this.id) || !blocks.get(this.id).contains(currentPeer.getId())) {
+			if(peerNews != null) {
+				System.out.println("Participant(" + label + "): applying updates from " + peerNews.size() + " participants.");
 				
 				//Algorithm 3
 				//compute new follows and blocks
@@ -191,23 +193,19 @@ public class Participant {
 					
 				
 				//Line 4 of algorithm
-//				if(blocks.containsKey(currentPeer.getId()))
-//					for(PublicKey blocked : blocks.get(currentPeer.getId())) 
-//						if(getStoreIds().contains(blocked))
-//							removeLogFromStore(blocked);
+//					if(blocks.containsKey(currentPeer.getId()))
+//						for(PublicKey blocked : blocks.get(currentPeer.getId())) 
+//							if(getStoreIds().contains(blocked))
+//								removeLogFromStore(blocked);
 					
 				
 				updateStore(peerNews);
+				state = State.FINISHED;
 			}
-			
-			state = State.FINISHED;
 		} 
 	}
 	
 	private void peerHandshake() {
-		Context<Object> context = ContextUtils.getContext(this);
-		Network<Object> net = (Network<Object>) context.getProjection("peer network");	
-		
 		int tickCount = (int) RunEnvironment.getInstance().getCurrentSchedule().getTickCount();
 		
 		if(state == State.AVAILABLE) {
@@ -217,7 +215,7 @@ public class Participant {
 				currentPeer.onHandshakeACK(new Handshake(tickCount, Handshake.SYN_ACK, this));
 				state = State.SYN_RECEIVED;
 				//add an edge between this partecipant and its peer
-				timeout = 2; //TODO: parametrize
+				timeout = 2; //2 ticks to receive back frontier //TODO: parametrize
 			} else {
 				double coinToss = RandomHelper.nextDoubleFromTo(0, 1);
 				if(coinToss <= probabilityOfHandshake) {
@@ -229,13 +227,14 @@ public class Participant {
 					System.out.println("Participant(" + label + "): sending SYN to " + currentPeer.getLabel());
 					currentPeer.onHandshakeSyn(new Handshake(tickCount, Handshake.SYN, this));
 					state = State.SYN_SENT;
-					timeout = 2; //TODO: parametrize
-					net.addEdge(this, currentPeer);
+					timeout = 2; //2 ticks to receive back ACK //TODO: parametrize
+					TopologyManager.addEdge(this, currentPeer);
 				}
 			}	
 		} else if(timeout < 0) {
-			System.out.println("Participant(" + label + "): " + currentPeer.getLabel() + " didn't ACK in time, aborting...");
-			net.removeEdge(net.getEdge(this, currentPeer));
+			System.out.println("Participant(" + label + "): " + currentPeer.getLabel() + " didn't reply in time, aborting...");
+			System.out.println("removin 2");
+			TopologyManager.removeEdge(this, currentPeer);
 			currentPeer = null;
 			state = State.AVAILABLE;
 			handshakeSYNs.clear();
@@ -249,28 +248,30 @@ public class Participant {
 				currentPeer.onEstablished(myFrontier);
 				handshakeSYNs.clear();
 				handshakeACKs.clear();
-				timeout = 2; //reset timeout
+				timeout = 2; //2 ticks to receive back news // TODO: parametrize
 			}
-		} else if(state == State.CONN_ESTABLISHED && peerFrontier != null) {
+		} else if(state == State.CONN_ESTABLISHED) {
+			timeout--;
 			
-			System.out.println("Participant(" + label + "): inspecting frontier from " + currentPeer.getLabel());
-			
-			for(Entry<PublicKey, Integer> entry : peerFrontier.entrySet()) {
-				PublicKey tempId = entry.getKey();
-				if(!store.containsKey(tempId)) {
-					addLogToStore(tempId);
-					frontier.put(tempId, -1);
+			if(peerFrontier != null) {
+				System.out.println("Participant(" + label + "): inspecting frontier from " + currentPeer.getLabel());
+				for(Entry<PublicKey, Integer> entry : peerFrontier.entrySet()) {
+					PublicKey tempId = entry.getKey();
+					if(!store.containsKey(tempId)) {
+						addLogToStore(tempId);
+						frontier.put(tempId, -1);
+					}
 				}
+				
+				Map<PublicKey, List<Event>> news = getEventsSince(peerFrontier);
+				currentPeer.onNewsExchange(news);
+				
+				System.out.println("Participant(" + label + "): exchanging news from "
+						+ news.size() + "partecipant(s) with " + currentPeer.getLabel());
+			
+				state = State.NEWS_EXCHANGED;
 			}
 			
-			Map<PublicKey, List<Event>> news = getEventsSince(peerFrontier);
-			currentPeer.onNewsExchange(news);
-			
-			System.out.println("Participant(" + label + "): exchanging news from "
-					+ news.size() + "partecipant(s) with " + currentPeer.getLabel());
-		
-			
-			state = State.NEWS_EXCHANGED;
 		} else if(state == State.FINISHED) {
 			peerFrontier = null;
 			peerNews = null;
@@ -281,9 +282,9 @@ public class Participant {
 			for(PublicKey tempId : store.keySet()) {
 				System.out.println(getLogById(tempId).size());
 			}
-			
+			System.out.println("removin 1");
 			//remove link with current peer
-			net.removeEdge(net.getEdge(this, currentPeer));
+			TopologyManager.removeEdge(this, currentPeer);
 			currentPeer = null;
 			state = State.AVAILABLE;
 		}
@@ -526,6 +527,7 @@ public class Participant {
 			List<Event> newsById = news.get(tempId); //new events
 			//List<Event> log = get(tempId); //target log for append operations
 			updateLog(newsById);
+			System.out.println("view add 1 " + TopologyManager.getParticipantById(tempId));
 			view.add(TopologyManager.getParticipantById(tempId));
 		}
 	}
@@ -667,6 +669,22 @@ public class Participant {
 		}
 	}
 	
+	/*
+	 * At each tick, the participant might crash with a given probability.
+	 * The priority of this method is random, therefore it might occur
+	 * at different times with respect to the other scheduled methods.
+	 */
+	@ScheduledMethod(start=1, interval=1) //random priority by default
+	public void crash() {
+		double coinToss = RandomHelper.nextDoubleFromTo(0, 1);
+		if(coinToss <= Options.CRASH_PROBABILITY) {
+			
+			System.out.println("Participant(" + label + ") crashed, removing it from the context...");
+			crashed = true;
+			TopologyManager.removeParticipant(this);
+		}
+	}
+	
 //	private PublicKey pickRandomParticipant() {
 //		Context<Object> context = ContextUtils.getContext(this);
 //		List<Participant> tempParticipants = new ArrayList<>();
@@ -712,7 +730,7 @@ public class Participant {
             return true; 
         } 
   
-        if (!(obj instanceof Participant)) { 
+        if (obj == null || !(obj instanceof Participant)) { 
             return false; 
         } 
           
@@ -724,6 +742,10 @@ public class Participant {
         else
         	return false;
         		
+	}
+	
+	public boolean isCrashed() {
+		return crashed;
 	}
 	
 	

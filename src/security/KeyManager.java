@@ -33,9 +33,9 @@ public class KeyManager {
     /*
      * Generate a number of key pairs equal to the number of agents
      */
-    public static void generateKeys(int relayId) {
+    public static void generateKeys(int participantId) {
     	KeyPair pair = keyGen.generateKeyPair();
-        PRIVATE_KEYS.put(relayId, pair.getPrivate());
-        PUBLIC_KEYS.put(relayId, pair.getPublic());
+        PRIVATE_KEYS.put(participantId, pair.getPrivate());
+        PUBLIC_KEYS.put(participantId, pair.getPublic());
     }
 }

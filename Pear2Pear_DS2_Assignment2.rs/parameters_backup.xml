@@ -74,7 +74,7 @@
 												values="0.001 0.002 0.005 0.01 "
 											/>
 				<parameter name="PROBABILITY_OF_PERTURBATION" displayName="Probability of a new perturbation per tick" type="double" 
-						defaultValue="0.005" 
+						defaultValue="0.1" 
 						isReadOnly="false" 
 						converter="repast.simphony.parameter.StringConverterFactory$DoubleConverter"
 												values="0.001 0.005 0.01 0.05 0.1 0.25 0.5 0.75 1.0 "

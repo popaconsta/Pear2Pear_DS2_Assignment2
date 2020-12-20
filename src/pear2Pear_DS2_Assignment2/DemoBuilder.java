@@ -53,7 +53,7 @@ public class DemoBuilder implements ContextBuilder<Object> {
         try {
         	KeyManager.initialize(1024, Options.MAX_PARTICIPANT_COUNT);
         } catch (NoSuchAlgorithmException | NoSuchProviderException e) {
-            System.out.println(e.getMessage());
+            e.printStackTrace();
         }
 		
 		//Position the nodes in a specific way to create the needed topology

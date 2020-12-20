@@ -2,6 +2,7 @@ package pear2Pear_DS2_Assignment2;
 
 import java.security.PublicKey;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -12,6 +13,7 @@ import javax.print.attribute.HashAttributeSet;
 
 import Utils.Options;
 import agents.Participant;
+import agents.View;
 import repast.simphony.context.Context;
 import repast.simphony.context.space.continuous.ContinuousSpaceFactory;
 import repast.simphony.context.space.continuous.ContinuousSpaceFactoryFinder;
@@ -34,15 +36,15 @@ public class TopologyManager {
 	private static Context<Object> context; //simulation context
 	private static int nextId; //next available relay id
 	private static int currentPeerNum; //currently alive relays
-	private static List<Participant> participantList;
-	private static Map<PublicKey, Participant> participantMap;
+	private static CopyOnWriteArrayList<Participant> currentParticipants;
+	private static Map<PublicKey, Participant> allTimeParticipants;
 
     // static method to initialize the topology manager
     public static void initialize(Context<Object> ctx) { 
      
     	availableLocations = new ArrayList<>(); //instantiate the list
-    	participantList = new ArrayList<Participant>();
-    	participantMap = new HashMap<>();
+    	currentParticipants = new CopyOnWriteArrayList<Participant>();
+    	allTimeParticipants = new HashMap<>();
     	
     	context = ctx;
     	
@@ -78,14 +80,14 @@ public class TopologyManager {
 		//Create and add the relays to the space
 		for (int i = 0; i < Options.MAX_PARTICIPANT_COUNT; i++) {
 			Participant p = new Participant(KeyManager.PUBLIC_KEYS.get(i), KeyManager.PRIVATE_KEYS.get(i), Integer.toString(i));
-			participantList.add(p);
-			participantMap.put(p.getId(), p);
+			currentParticipants.add(p);
+			allTimeParticipants.put(p.getId(), p);
 		}
 		//Initialize participants view
 		for (int i = 0; i < Options.MAX_PARTICIPANT_COUNT; i++) {
-			context.add(participantList.get(i));
+			context.add(currentParticipants.get(i));
 			for(int j = 0; j < Options.MAX_PARTICIPANT_COUNT / 4; j++) 
-				participantList.get(i).getView().add(participantList.get((i + j + 1) % Options.MAX_PARTICIPANT_COUNT));
+				currentParticipants.get(i).getView().add(currentParticipants.get((i + j + 1) % Options.MAX_PARTICIPANT_COUNT));
 		}
     	nextId = Options.MAX_PARTICIPANT_COUNT; //initially the next id is the initial amount of relays
     	currentPeerNum = Options.MAX_PARTICIPANT_COUNT;
@@ -93,12 +95,20 @@ public class TopologyManager {
     }
     
     public static Participant getParticipantById(PublicKey id) {
-    	return participantMap.get(id);
+    	return allTimeParticipants.get(id);
     }
 	
-	public static void removeRelay(Participant participant) {
+	public static void removeParticipant(Participant participant) {
 		availableLocations.add(space.getLocation(participant)); //mark the location of the crashed node as available
 		currentPeerNum--;
+		
+		//Remove participant from list
+		for(Participant p : currentParticipants)
+			if(p.equals(participant))
+				currentParticipants.remove(p);
+		
+		System.out.println(participant.getLabel() + " is still alive");
+		
 		//Remove the edges which are connected to the crashed node
 		Network<Object> net = (Network<Object>) context.getProjection("peer network"); 
 		CopyOnWriteArrayList<RepastEdge<Object>> edges = new CopyOnWriteArrayList<>(); //thread-safe method
@@ -112,6 +122,20 @@ public class TopologyManager {
 		
 	}
 	
+	public static void addEdge(Participant source, Participant target) {
+		Network<Object> net = (Network<Object>) context.getProjection("peer network");	
+		
+		if(!source.isCrashed() && !target.isCrashed())
+			net.addEdge(source, target);
+	}
+	
+	public static void removeEdge(Participant source, Participant target) {
+		Network<Object> net = (Network<Object>) context.getProjection("peer network");	
+		
+		if(!source.isCrashed() && !target.isCrashed())
+			net.removeEdge(net.getEdge(source, target));
+	}
+	
 	/*
 	 * Since each relay has a given probability of crashing, the expected
 	 * value of crashed relay per tick is equal to relay_number * prob_crash
@@ -120,7 +144,7 @@ public class TopologyManager {
 	 * to add a new relay to the context.
 	 */
 	@ScheduledMethod(start = 1, interval = 1)
-	public static void addNewRelays() {
+	public static void addNewParticipants() {
 		for(int i=0; i<Options.MAX_PARTICIPANT_COUNT; i++) {
 			double coinToss = RandomHelper.nextDoubleFromTo(0, 1);
 			//Check if there are available locations
@@ -140,10 +164,25 @@ public class TopologyManager {
 				
 				//Generate private and public keys for the new relay
 				KeyManager.generateKeys(nextId);
-				System.out.println("Relay(" + nextId + ") is joining the context...");
+				System.out.println("Participant(" + nextId + ") is joining the context");
+				
+				View view = new View(currentPeerNum/4);
+				List<Participant> randomPeers = new ArrayList<>(currentParticipants);
+				Collections.shuffle(randomPeers);
+				for(int j=0; j<currentPeerNum/4; j++) {
+					Participant p = randomPeers.get(j);
+					if(p != null)
+						view.add(p);
+				}
+				
 				//Place the new relay in the context
 				Participant participant = new Participant(
-						KeyManager.PUBLIC_KEYS.get(nextId), KeyManager.PRIVATE_KEYS.get(nextId), Integer.toBinaryString(nextId));
+						KeyManager.PUBLIC_KEYS.get(nextId), KeyManager.PRIVATE_KEYS.get(nextId), Integer.toString(nextId));
+				participant.setView(view);
+				
+				currentParticipants.add(participant);
+				allTimeParticipants.put(participant.getId(), participant);
+				
 				nextId++;
 				context.add(participant);
 				space.moveTo(participant, x, y);
