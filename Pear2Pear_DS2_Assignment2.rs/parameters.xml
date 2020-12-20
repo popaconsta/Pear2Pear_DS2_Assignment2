@@ -21,6 +21,12 @@
 						isReadOnly="false" 
 						converter="repast.simphony.parameter.StringConverterFactory$IntConverter"
 											/>
+				<parameter name="PROTOCOL_VARIANT" displayName="Protocol in use" type="java.lang.String" 
+						defaultValue="TRANSITIVE_INTEREST_GOSSIP" 
+						isReadOnly="false" 
+						converter="repast.simphony.parameter.StringConverterFactory$StringStringConverter"
+												values="TRANSITIVE_INTEREST_GOSSIP OPEN_GOSSIP "
+											/>
 				<parameter name="PERTURBATION_SIZE" displayName="Size of the messages" type="double" 
 						defaultValue="10.0" 
 						isReadOnly="false" 

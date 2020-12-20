@@ -39,6 +39,7 @@ public class TopologyManager {
 	private static int currentPeerNum; //currently alive relays
 	private static CopyOnWriteArrayList<Participant> currentParticipants;
 	private static Map<PublicKey, Participant> allTimeParticipants;
+	private static Map<PublicKey, Integer> globalFrontier;
 
     // static method to initialize the topology manager
     public static void initialize(Context<Object> ctx) { 
@@ -267,6 +268,22 @@ public class TopologyManager {
 			return;
 		}
 	}
+	
+	@ScheduledMethod(start = 100, interval = 25)
+	public static void calculatePercentages() {
+		 globalFrontier = new HashMap<>();
+		 
+		 //calculating global frontier
+		 for(Participant p : currentParticipants) {
+			 globalFrontier.put(p.getId(), p.getMyLogLength());
+		 }
+		 
+		 //calculating percentages
+		 for(Participant p : currentParticipants) {
+			 p.calcPercentage(globalFrontier);
+		 }
+	}
+	
 	
 	public static ContinuousSpace<Object> getSpace() {
 		return space;

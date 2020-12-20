@@ -7,7 +7,7 @@
 												values="O * R | "
 											/>
 				<parameter name="CRASH_PROBABILITY" displayName="Probability of relays to crash" type="double" 
-						defaultValue="0.05" 
+						defaultValue="0.001" 
 						isReadOnly="false" 
 						converter="repast.simphony.parameter.StringConverterFactory$DoubleConverter"
 											/>
@@ -63,7 +63,7 @@
 						converter="repast.simphony.parameter.StringConverterFactory$DoubleConverter"
 											/>
 				<parameter name="JOIN_PROBABILITY" displayName="Probability of new relays to join" type="double" 
-						defaultValue="0.05" 
+						defaultValue="0.001" 
 						isReadOnly="false" 
 						converter="repast.simphony.parameter.StringConverterFactory$DoubleConverter"
 											/>

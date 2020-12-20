@@ -2,6 +2,7 @@ package agents;
 
 import java.security.PrivateKey;
 import java.security.PublicKey;
+import java.text.DecimalFormat;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.util.ArrayList;
@@ -65,6 +66,8 @@ public class Participant {
 	private double probabilityOfNewEvent;
 	private double probabilityOfHandshake = 0.2; //TODO:parametrize
 	
+	private double logPercentage;
+	
 	public Participant(PublicKey id, PrivateKey privateKey, String label) {
 		super();
 		this.id = id;
@@ -84,6 +87,7 @@ public class Participant {
 		protocolVariant = Options.PROTOCOL_VARIANT;
 		follows = new HashMap<>();
 		blocks = new HashMap<>();
+		logPercentage = 0.0;
 	}
 
 
@@ -500,6 +504,16 @@ public class Participant {
 	}
 	
 	/*
+	 * get the current frontier of my events
+	 */
+	public Integer getMyLogLength() {
+		if(frontier.containsKey(this.id))
+			return frontier.get(this.id);
+		else
+			return 0;
+	}
+	
+	/*
 	 * get the set of events that happened after frontier
 	 */
 	private Map<PublicKey, List<Event>> getEventsSince(Map<PublicKey, Integer> frontier) {
@@ -545,6 +559,30 @@ public class Participant {
 	}
 	
 	/*
+	 * calculate the percentage of received logs w.r.t the global number of logs
+	 */
+	public void calcPercentage(Map<PublicKey, Integer> globalFrontier) {
+		double totalOfLogs = 0;
+		double myLogs = 0;
+		
+		for(Map.Entry<PublicKey, Integer> entry : globalFrontier.entrySet()) {
+			if(!blocks.containsKey(this.id) || !blocks.get(this.id).contains(entry.getKey())) {
+				totalOfLogs += entry.getValue();
+			}
+		}
+		
+		for(Map.Entry<PublicKey, Integer> entry : this.frontier.entrySet()) {
+			if(entry.getValue() >= 0)
+				myLogs += entry.getValue();
+		}
+		
+		System.out.println("MYLOGS: " + myLogs + "    TOTAL_LOGS: " + totalOfLogs);
+		
+		this.logPercentage = (myLogs / totalOfLogs)*100;
+		
+	}
+	
+	/*
 	 * ****************************************************
 	 * ********** TRANSITIVE-INTEREST OPERATIONS **********
 	 * ****************************************************
@@ -564,7 +602,7 @@ public class Participant {
 	}
 	
 	private void unfollow(PublicKey targetId) {
-		System.out.println("Participant(" + label + "): following " 
+		System.out.println("Participant(" + label + "): unfollowing " 
 				+ TopologyManager.getParticipantById(targetId).getLabel());
 			
 		appendToLog(new Interest(targetId, Interest.Type.UNFOLLOW));
@@ -572,7 +610,7 @@ public class Participant {
 	}
 	
 	private void block(PublicKey targetId) {
-		System.out.println("Participant(" + label + "): following " 
+		System.out.println("Participant(" + label + "): blocking " 
 				+ TopologyManager.getParticipantById(targetId).getLabel());
 			
 		appendToLog(new Interest(targetId, Interest.Type.BLOCK));
@@ -580,7 +618,7 @@ public class Participant {
 	}
 	
 	private void unblock(PublicKey targetId) {
-		System.out.println("Participant(" + label + "): following " 
+		System.out.println("Participant(" + label + "): unblocking " 
 				+ TopologyManager.getParticipantById(targetId).getLabel());
 			
 		appendToLog(new Interest(targetId, Interest.Type.UNBLOCK));
@@ -736,6 +774,11 @@ public class Participant {
 	
 	public String getLabel() {
 		return label;
+	}
+	
+	public String getPercentage() {
+		DecimalFormat df = new DecimalFormat("#.##");
+		return (df.format(logPercentage));
 	}
 	
 	public PublicKey getId() {

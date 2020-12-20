@@ -30,7 +30,7 @@ public class ParticipantStyle extends DefaultStyleOGL2D{
 	
 	@Override
 	public String getLabel(Object o) {
-		return ((Participant)o).getLabel();
+		return ((Participant)o).getLabel() + ": " + ((Participant)o).getPercentage() + "%";
 	}
 	
 	@Override
