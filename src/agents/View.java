@@ -54,7 +54,8 @@ public class View extends ArrayList<Participant> {
     }
     
     public void updateLastSeen(PublicKey id, Integer currentTick) {
-    	System.out.println("updating " + currentTick);
+    	//System.out.println("updating " + currentTick);
+    	lastSeen.put(id, currentTick);
     }
     
     public void cleanUp(Integer currentTick, String viewOwner) {

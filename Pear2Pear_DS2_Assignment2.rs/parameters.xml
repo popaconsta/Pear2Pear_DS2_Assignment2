@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <parameters>
 					<parameter name="TOPOLOGY" displayName="Topology of the network" type="java.lang.String" 
-						defaultValue="O" 
+						defaultValue="*" 
 						isReadOnly="false" 
 						converter="repast.simphony.parameter.StringConverterFactory$StringStringConverter"
 												values="O * R | "
@@ -12,7 +12,7 @@
 						converter="repast.simphony.parameter.StringConverterFactory$DoubleConverter"
 											/>
 				<parameter name="RELAY_COUNT" displayName="Number of relays" type="int" 
-						defaultValue="20" 
+						defaultValue="41" 
 						isReadOnly="false" 
 						converter="repast.simphony.parameter.StringConverterFactory$IntConverter"
 											/>
@@ -44,7 +44,7 @@
 												values="0.001 0.002 0.005 0.01 "
 											/>
 				<parameter name="ENVIRONMENT_DIMENSION" displayName="Dimension of the environment" type="int" 
-						defaultValue="50" 
+						defaultValue="65" 
 						isReadOnly="false" 
 						converter="repast.simphony.parameter.StringConverterFactory$IntConverter"
 											/>

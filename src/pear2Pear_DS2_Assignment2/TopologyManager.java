@@ -270,24 +270,18 @@ public class TopologyManager {
 	}
 	
 	@ScheduledMethod(start = 100, interval = 25)
-	public static void calculatePercentages() {
-		 
-		Options.PROBABILITY_OF_PERTURBATION = 0;
-		Options.PROBABILITY_TO_FOLLOW = 0;
-		Options.PROBABILITY_TO_BLOCK = 0;
-		Options.JOIN_PROBABILITY = 0;
-		Options.CRASH_PROBABILITY = 0;
+	public static void calcMissingUpdateRatio() {
 		
 		globalFrontier = new HashMap<>();
 		 
-		 //calculating global frontier
+		 //calculating global log length
 		 for(Participant p : currentParticipants) {
-			 globalFrontier.put(p.getId(), p.getMyLogLength());
+			 globalFrontier.put(p.getId(), p.getLocalLogLength());
 		 }
 		 
-		 //calculating percentages
+		 //calculating ratios
 		 for(Participant p : currentParticipants) {
-			 p.calcPercentage(globalFrontier);
+			 p.calcLocalMissingUpdateRatio(globalFrontier);
 		 }
 	}
 	

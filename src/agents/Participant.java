@@ -94,6 +94,16 @@ public class Participant {
 	 */
 	@ScheduledMethod(start=1, interval=1, priority=99) 
 	public void generateEvent() {
+		int tickCount = (int) RunEnvironment.getInstance().getCurrentSchedule().getTickCount();
+		
+		if(tickCount == 200) {
+			Options.PROBABILITY_OF_PERTURBATION = 0;
+			Options.PROBABILITY_TO_FOLLOW = 0;
+			Options.PROBABILITY_TO_BLOCK = 0;
+			Options.JOIN_PROBABILITY = 0;
+			Options.CRASH_PROBABILITY = 0;
+		}
+		
 		double coinToss = RandomHelper.nextDoubleFromTo(0, 1);
 		//Generate a broadcast with one fourth of the probability
 		if(coinToss <= Options.PROBABILITY_OF_PERTURBATION) { //propagate a value broadcast perturbation	
@@ -193,25 +203,25 @@ public class Participant {
 						if(!getStoreIds().contains(followed) && (!blocks.containsKey(this.id) || !blocks.get(this.id).contains(followed))) {
 							addLogToStore(followed);
 							frontier.put(followed, -1);
+							//follow(followed);
 						}
 					
 				
 				//Line 4 of algorithm
-					if(blocks.containsKey(currentPeer.getId()))
-						for(PublicKey blocked : blocks.get(currentPeer.getId())) 
-							if(getStoreIds().contains(blocked) && follows.containsKey(this.id) && !follows.get(this.id).contains(blocked))
-								removeLogFromStore(blocked);
+//				if(blocks.containsKey(currentPeer.getId()))
+//					for(PublicKey blocked : blocks.get(currentPeer.getId())) 
+//						if(getStoreIds().contains(blocked) && follows.containsKey(this.id) && !follows.get(this.id).contains(blocked))
+//							removeLogFromStore(blocked);
 				
-				Map<PublicKey, List<Event>> validNews = new HashMap<>();
-				
-				for(Entry<PublicKey, List<Event>> entry : peerNews.entrySet()) {
-					if(!blocks.containsKey(this.id) || !blocks.get(this.id).contains(entry.getKey())) {
-						validNews.put(entry.getKey(), entry.getValue());
+				//Filter out blocked participants fron news
+				Iterator<Entry<PublicKey, List<Event>>> itr = peerNews.entrySet().iterator();
+				while(itr.hasNext()) {
+					PublicKey pKey = itr.next().getKey();
+					if(blocks.containsKey(this.id) && blocks.get(this.id).contains(pKey)) {
+						itr.remove();
 					} 
 				}
-				
-				
-				updateStore(validNews);
+				updateStore(peerNews);
 				state = State.FINISHED;
 			}
 		} 
@@ -296,9 +306,9 @@ public class Participant {
 			System.out.println("Connection closed to " + currentPeer.getLabel() 
 				+ ", current status: store = " + store.size() );
 			
-			for(PublicKey tempId : store.keySet()) {
-				System.out.println(getLogById(tempId).size());
-			}
+//			for(PublicKey tempId : store.keySet()) {
+//				System.out.println(getLogById(tempId).size());
+//			}
 			//remove link with current peer
 			TopologyManager.removeEdge(this, currentPeer);
 			currentPeer = null;
@@ -337,10 +347,10 @@ public class Participant {
 					eligibleSYNs.add(hs);
 		}
 		
-		if(blocks.get(id) != null)
-			for(PublicKey b : blocks.get(id))
-				System.out.println(label + " blocked " + TopologyManager.getParticipantById(b).getLabel());
-		
+//		if(blocks.get(id) != null)
+//			for(PublicKey b : blocks.get(id))
+//				System.out.println(label + " blocked " + TopologyManager.getParticipantById(b).getLabel());
+//		
 		if(eligibleSYNs.size() == 0)
 			return null;
 		
@@ -426,7 +436,7 @@ public class Participant {
 	    	if(e.getIndex().equals(lastIndex + 1)
 	    			&& previous.equals(e.getPrevious())
 	    			&& e.isSignatureVerified()) {
-	    		System.out.println("Participant(" + label + "): applying update " + "#" + e.getIndex()+"\n--------");
+	    		System.out.println("Participant(" + label + "): applying update " + "#" + e.getIndex());
 				
 	    		log.add(e);
 	    		frontier.put(e.getId(), e.getIndex());
@@ -513,9 +523,9 @@ public class Participant {
 	/*
 	 * get the current frontier of my events
 	 */
-	public Integer getMyLogLength() {
-		if(frontier.containsKey(this.id))
-			return frontier.get(this.id);
+	public Integer getLocalLogLength() {
+		if(getLogById(this.id) != null)
+			return getLogById(this.id).size();
 		else
 			return 0;
 	}
@@ -568,21 +578,32 @@ public class Participant {
 	/*
 	 * calculate the percentage of received logs w.r.t the global number of logs
 	 */
-	public void calcPercentage(Map<PublicKey, Integer> globalFrontier) {
+	public void calcLocalMissingUpdateRatio(Map<PublicKey, Integer> globalFrontier) {
 		double totalOfLogs = 0;
 		double myLogs = 0;
 		
 		for(Map.Entry<PublicKey, Integer> entry : globalFrontier.entrySet()) {
 			if(!blocks.containsKey(this.id) || !blocks.get(this.id).contains(entry.getKey())) {
-				if(entry.getValue() >= 0)
+
+				if(entry.getValue() >= 0) {
 					totalOfLogs += entry.getValue();
+					
+					if(getStoreIds().contains(entry.getKey())) {
+						myLogs += getLogById(entry.getKey()).size();
+						
+						if(getLogById(entry.getKey()).size() < entry.getValue()) {
+							System.out.println(label + " missing updates for participant " 
+									+ TopologyManager.getParticipantById(entry.getKey()).getLabel());
+						}
+					}	
+				}
 			}
 		}
 		
-		for(Map.Entry<PublicKey, Integer> entry : this.frontier.entrySet()) {
-			if(entry.getValue() >= 0 && globalFrontier.containsKey(entry.getKey()))
-				myLogs += entry.getValue();
-		}
+//		for(Map.Entry<PublicKey, Integer> entry : this.frontier.entrySet()) {
+//			if(entry.getValue() >= 0 && globalFrontier.containsKey(entry.getKey()))
+//				myLogs += entry.getValue();
+//		}
 		
 		System.out.println("MYLOGS: " + myLogs + "    TOTAL_LOGS: " + totalOfLogs);
 		if(blocks.containsKey(this.id))
