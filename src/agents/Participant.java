@@ -190,8 +190,10 @@ public class Participant {
 				// Line 3 of algorithm
 				if(follows.containsKey(currentPeer.getId()))
 					for(PublicKey followed : follows.get(currentPeer.getId())) 
-						if(!getStoreIds().contains(followed))
+						if(!getStoreIds().contains(followed) && (!blocks.containsKey(this.id) || !blocks.get(this.id).contains(followed))) {
 							addLogToStore(followed);
+							frontier.put(followed, -1);
+						}
 					
 				
 				//Line 4 of algorithm
@@ -199,9 +201,17 @@ public class Participant {
 						for(PublicKey blocked : blocks.get(currentPeer.getId())) 
 							if(getStoreIds().contains(blocked) && follows.containsKey(this.id) && !follows.get(this.id).contains(blocked))
 								removeLogFromStore(blocked);
-					
 				
-				updateStore(peerNews);
+				Map<PublicKey, List<Event>> validNews = new HashMap<>();
+				
+				for(Entry<PublicKey, List<Event>> entry : peerNews.entrySet()) {
+					if(!blocks.containsKey(this.id) || !blocks.get(this.id).contains(entry.getKey())) {
+						validNews.put(entry.getKey(), entry.getValue());
+					} 
+				}
+				
+				
+				updateStore(validNews);
 				state = State.FINISHED;
 			}
 		} 
@@ -575,6 +585,9 @@ public class Participant {
 		}
 		
 		System.out.println("MYLOGS: " + myLogs + "    TOTAL_LOGS: " + totalOfLogs);
+		if(blocks.containsKey(this.id))
+			System.out.println("BLOCKED_LOCALLY: " + blocks.get(this.id).size());
+
 		
 		if(totalOfLogs > 0)
 			this.logPercentage = (myLogs / totalOfLogs)*100;
@@ -650,16 +663,17 @@ public class Participant {
 	
 	// Note up that id follows target; if target is blocked, unblock
 	private void addToFollows(PublicKey id, PublicKey targetId) {
-		
-		if(blocks.containsKey(id) && blocks.get(id).contains(targetId)) {
-			unblock(targetId);
-		}
-		if(!follows.containsKey(id)) {
-			follows.put(id, new ArrayList<>());
-		}
-				
-		if(!follows.get(id).contains(targetId)) {
-			follows.get(id).add(targetId);
+		if(id != targetId || (id != this.id && this.id != targetId)) {
+			if(blocks.containsKey(id) && blocks.get(id).contains(targetId)) {
+				//unblock(targetId);
+			}
+			if(!follows.containsKey(id)) {
+				follows.put(id, new ArrayList<>());
+			}
+					
+			if(!follows.get(id).contains(targetId)) {
+				follows.get(id).add(targetId);
+			}
 		}
 	}
 	
@@ -672,16 +686,22 @@ public class Participant {
 	
 	// Note up that id blocks target; if target is followed, unfollow
 	private void addToBlocks(PublicKey id, PublicKey targetId) {
-		
-		if(follows.containsKey(id) && follows.get(id).contains(targetId)) {
-			unfollow(targetId);
-		}
-		if(!blocks.containsKey(id)) {
-			blocks.put(id, new ArrayList<>());
-		}
-		
-		if(!blocks.get(id).contains(targetId)) {
-			blocks.get(id).add(targetId);
+		if(id != targetId || (id != this.id && this.id != targetId)) {
+			if(follows.containsKey(id) && follows.get(id).contains(targetId)) {
+				//unfollow(targetId);
+			}
+			if(!blocks.containsKey(id)) {
+				blocks.put(id, new ArrayList<>());
+			}
+			
+			if(!blocks.get(id).contains(targetId)) {
+				blocks.get(id).add(targetId);
+			}
+			
+			//if i am blocking someone directly, remove the log
+			if(id == this.id) {
+				removeLogFromStore(targetId);
+			}
 		}
 	}
 	
