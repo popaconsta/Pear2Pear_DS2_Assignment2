@@ -23,6 +23,13 @@ import javax.crypto.SealedObject;
 import pear2Pear_DS2_Assignment2.TopologyManager;
 import repast.simphony.context.Context;
 import repast.simphony.engine.environment.RunEnvironment;
+import repast.simphony.engine.schedule.DefaultSchedulableActionFactory;
+import repast.simphony.engine.schedule.DefaultScheduleFactory;
+import repast.simphony.engine.schedule.ISchedulableAction;
+import repast.simphony.engine.schedule.ISchedule;
+import repast.simphony.engine.schedule.PriorityType;
+import repast.simphony.engine.schedule.Schedule;
+import repast.simphony.engine.schedule.ScheduleParameters;
 import repast.simphony.engine.schedule.ScheduledMethod;
 import repast.simphony.random.RandomHelper;
 import repast.simphony.space.graph.Network;
@@ -97,7 +104,7 @@ public class Participant {
 		int tickCount = (int) RunEnvironment.getInstance().getCurrentSchedule().getTickCount();
 		
 		if(tickCount == 200) {
-			Options.PROBABILITY_OF_PERTURBATION = 0;
+			Options.PROBABILITY_OF_EVENT = 0;
 			Options.PROBABILITY_TO_FOLLOW = 0;
 			Options.PROBABILITY_TO_BLOCK = 0;
 			Options.JOIN_PROBABILITY = 0;
@@ -106,10 +113,10 @@ public class Participant {
 		
 		double coinToss = RandomHelper.nextDoubleFromTo(0, 1);
 		//Generate a broadcast with one fourth of the probability
-		if(coinToss <= Options.PROBABILITY_OF_PERTURBATION) { //propagate a value broadcast perturbation	
+		if(coinToss <= Options.PROBABILITY_OF_EVENT) { //propagate a value broadcast perturbation	
 			appendToLog(new String("ciao"));
 		} 
-		else if (coinToss <= Options.PROBABILITY_OF_PERTURBATION + Options.PROBABILITY_TO_FOLLOW && Options.PROTOCOL_VARIANT.equals("TRANSITIVE_INTEREST_GOSSIP")) {
+		else if (coinToss <= Options.PROBABILITY_OF_EVENT + Options.PROBABILITY_TO_FOLLOW && Options.PROTOCOL_VARIANT.equals("TRANSITIVE_INTEREST_GOSSIP")) {
 			
 			//follow one random participant followed by someone i already follow; if cannot find, pick a random one
 			PublicKey temp = pickRandomFollowing();
@@ -126,7 +133,7 @@ public class Participant {
 			if(target != null)
 				follow(target.getId());
 			
-		} else if (coinToss <= Options.PROBABILITY_OF_PERTURBATION + Options.PROBABILITY_TO_FOLLOW + Options.PROBABILITY_TO_BLOCK && Options.PROTOCOL_VARIANT.equals("TRANSITIVE_INTEREST_GOSSIP")) {
+		} else if (coinToss <= Options.PROBABILITY_OF_EVENT + Options.PROBABILITY_TO_FOLLOW + Options.PROBABILITY_TO_BLOCK && Options.PROTOCOL_VARIANT.equals("TRANSITIVE_INTEREST_GOSSIP")) {
 			
 			//block one random participant blocked by someone I follow; if cannot find, pick a random one
 			PublicKey friendId = pickRandomFollowing();
@@ -238,7 +245,7 @@ public class Participant {
 				state = State.SYN_RECEIVED;
 				view.add(TopologyManager.getParticipantById(currentPeer.getId()), tickCount);
 				//add an edge between this partecipant and its peer
-				timeout = 2; //2 ticks to receive back frontier //TODO: parametrize
+				timeout = Options.ACK_TIMEOUT; //2 ticks to receive back frontier 
 			} else {
 				double coinToss = RandomHelper.nextDoubleFromTo(0, 1);
 				if(coinToss <= probabilityOfHandshake) {
@@ -253,7 +260,7 @@ public class Participant {
 						System.out.println("Participant(" + label + "): sending SYN to " + currentPeer.getLabel());
 						currentPeer.onHandshakeSyn(new Handshake(tickCount, Handshake.SYN, this));
 						state = State.SYN_SENT;
-						timeout = 2; //2 ticks to receive back ACK //TODO: parametrize
+						timeout = Options.ACK_TIMEOUT; //2 ticks to receive back SYN ACK
 						TopologyManager.addEdge(this, currentPeer);
 					}
 				}
@@ -275,7 +282,7 @@ public class Participant {
 				currentPeer.onEstablished(myFrontier);
 				handshakeSYNs.clear();
 				handshakeACKs.clear();
-				timeout = 2; //2 ticks to receive back news // TODO: parametrize
+				timeout = Options.FRONTIER_TIMEOUT; 
 			}
 		} else if(state == State.CONN_ESTABLISHED) {
 			timeout--;
@@ -291,12 +298,37 @@ public class Participant {
 				}
 				
 				Map<PublicKey, List<Event>> news = getEventsSince(peerFrontier);
-				currentPeer.onNewsExchange(news);
+				
+				int eventNum = 0;
+				for(Entry<PublicKey, List<Event>> newsById : news.entrySet()) 
+					eventNum += newsById.getValue().size();
+				
+				int uploadTime = (int) Math.ceil((eventNum * Options.EVENT_SIZE) / Options.BANDWIDTH);		
+				
+//				new Schedule()
+//				.schedule(
+//						ScheduleParameters.createOneTime(tickCount + uploadTime, PriorityType.RANDOM),
+//						currentPeer, 
+//						"onNewsExchange", 
+//						news)
+//				.execute();
+			
+				
+				RunEnvironment.getInstance().getCurrentSchedule().schedule(
+						ScheduleParameters.createOneTime(tickCount + uploadTime, PriorityType.RANDOM),
+						currentPeer, 
+						"onNewsExchange", 
+						news);
+				
+				//currentPeer.onNewsExchange(news);
 				
 				System.out.println("Participant(" + label + "): exchanging news from "
-						+ news.size() + "partecipant(s) with " + currentPeer.getLabel());
+						+ news.size() + "partecipant(s) with " + currentPeer.getLabel() 
+						+ "(" + uploadTime + " ticks remaining, " + eventNum 
+						+ " events, started at " + tickCount + " )" );
 			
 				state = State.NEWS_EXCHANGED;
+				timeout = Options.NEWS_TIMEOUT;
 			}
 			
 		} else if(state == State.FINISHED) {

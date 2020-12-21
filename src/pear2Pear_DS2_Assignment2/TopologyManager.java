@@ -269,7 +269,7 @@ public class TopologyManager {
 		}
 	}
 	
-	@ScheduledMethod(start = 100, interval = 25)
+	@ScheduledMethod(start = 0, interval = 25)
 	public static void calcMissingUpdateRatio() {
 		
 		globalFrontier = new HashMap<>();
