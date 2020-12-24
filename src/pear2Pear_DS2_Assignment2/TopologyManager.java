@@ -300,15 +300,15 @@ public class TopologyManager {
 		double tick = RunEnvironment.getInstance().getCurrentSchedule().getTickCount();
 		
 		//Saving failed and successfull connections
-//		for(Participant p : currentParticipants) {
-//			if(p.getFailedConnections() > 0) {
-//				overallFailedConnections += p.getFailedConnections();
-//				p.setFailedConnections(0);
-//				overallSucceededConnections += p.getSucceededConnections();
-//				p.setSucceededConnections(0);
-//			}
-//		}
-//		DataCollector.saveConnections(overallSucceededConnections, overallFailedConnections, tick);
+		for(Participant p : currentParticipants) {
+			if(p.getFailedConnections() > 0) {
+				overallFailedConnections += p.getFailedConnections();
+				p.setFailedConnections(0);
+				overallSucceededConnections += p.getSucceededConnections();
+				p.setSucceededConnections(0);
+			}
+		}
+		DataCollector.saveConnections(overallSucceededConnections, overallFailedConnections, tick);
 		
 		//Saving number of participants
 //		DataCollector.saveNumberOfParticipants(currentPeerNum, tick);
@@ -323,6 +323,15 @@ public class TopologyManager {
 //		DataCollector.saveNumberOfNews(overallNumberOfNews, overallSummationNews, tick);
 //		overallNumberOfNews = 0;
 		
+		//Saving free bandwidth
+//		for(Participant p: currentParticipants) {
+//			overallNumberOfNews += p.getNumberOfNews();
+//			p.setNumberOfNews(0);
+//		}
+//		
+//		double freeBandwidth = ((Options.BANDWIDTH * currentPeerNum) - (overallNumberOfNews * Options.EVENT_SIZE)) / currentPeerNum;
+//		DataCollector.saveFreeBandwidth(freeBandwidth, tick);
+//		overallNumberOfNews = 0;
 	}
 	
 	

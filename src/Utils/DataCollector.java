@@ -38,6 +38,13 @@ public class DataCollector {
 	        pw3.close();
 	        fw3.close();
 //	        
+	      //clear FreeBandwidth
+	        FileWriter fw4 = new FileWriter("FreeBandwidth.csv", false);
+			PrintWriter pw4 = new PrintWriter(fw4, false);
+			pw4.write("Value;Tick" + '\n');
+	        pw4.flush();
+	        pw4.close();
+	        fw4.close();
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
@@ -72,6 +79,18 @@ public class DataCollector {
 		try {
 			writer = new CSVWriter(new FileWriter("NumberOfNews.csv", true), ';', '\0');
 			String[] entries = {news + "", summation + "", tick + ""};
+			writer.writeNext(entries);
+			writer.close();
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+	
+	public static void saveFreeBandwidth(double freeBandwidth, double tick) {
+		CSVWriter writer;
+		try {
+			writer = new CSVWriter(new FileWriter("FreeBandwidth.csv", true), ';', '\0');
+			String[] entries = {freeBandwidth + "", tick + ""};
 			writer.writeNext(entries);
 			writer.close();
 		} catch (Exception e) {
