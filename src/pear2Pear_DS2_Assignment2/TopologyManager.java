@@ -43,6 +43,8 @@ public class TopologyManager {
 	private static Map<PublicKey, Integer> globalFrontier;
 	private static int overallFailedConnections;
 	private static int overallSucceededConnections;
+	private static int overallNumberOfNews;
+	private static int overallSummationNews;
 
     // static method to initialize the topology manager
     public static void initialize(Context<Object> ctx) { 
@@ -52,6 +54,8 @@ public class TopologyManager {
     	allTimeParticipants = new HashMap<>();
     	overallFailedConnections = 0;
     	overallSucceededConnections = 0;
+    	overallNumberOfNews = 0;
+    	overallSummationNews = 0;
     	
     	context = ctx;
     	
@@ -291,16 +295,34 @@ public class TopologyManager {
 	}
 	
 	@ScheduledMethod(start = 1, interval = 1)
-	public static void calcOverallConnections() {
-		for(Participant p : currentParticipants) {
-			if(p.getFailedConnections() > 0) {
-				overallFailedConnections += p.getFailedConnections();
-				p.setFailedConnections(0);
-				overallSucceededConnections += p.getSucceededConnections();
-				p.setSucceededConnections(0);
-			}
-		}
-		DataCollector.saveConnections(overallSucceededConnections, overallFailedConnections, RunEnvironment.getInstance().getCurrentSchedule().getTickCount());
+	public static void saveData() {
+		
+		double tick = RunEnvironment.getInstance().getCurrentSchedule().getTickCount();
+		
+		//Saving failed and successfull connections
+//		for(Participant p : currentParticipants) {
+//			if(p.getFailedConnections() > 0) {
+//				overallFailedConnections += p.getFailedConnections();
+//				p.setFailedConnections(0);
+//				overallSucceededConnections += p.getSucceededConnections();
+//				p.setSucceededConnections(0);
+//			}
+//		}
+//		DataCollector.saveConnections(overallSucceededConnections, overallFailedConnections, tick);
+		
+		//Saving number of participants
+//		DataCollector.saveNumberOfParticipants(currentPeerNum, tick);
+		
+		//Saving number of news
+//		for(Participant p: currentParticipants) {
+//			overallNumberOfNews += p.getNumberOfNews();
+//			p.setNumberOfNews(0);
+//		}
+//		
+//		overallSummationNews += overallNumberOfNews;
+//		DataCollector.saveNumberOfNews(overallNumberOfNews, overallSummationNews, tick);
+//		overallNumberOfNews = 0;
+		
 	}
 	
 	

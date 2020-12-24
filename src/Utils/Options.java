@@ -27,30 +27,26 @@ public class Options {
 	public static int ACK_TIMEOUT;
 	public static int FRONTIER_TIMEOUT;
 	public static int NEWS_TIMEOUT;
-	
-	public static int NODE_A_BROADCAST;
-	public static int NODE_B_BROADCAST;
+	public static double PROBABILTY_OF_HANDSHAKE;
 	
 	public static void load() {
 		Parameters params = RunEnvironment.getInstance().getParameters();
 		
-		PROBABILITY_OF_EVENT = params.getDouble("PROBABILITY_OF_PERTURBATION"); //rename in prob. of event
-		MAX_PARTICIPANT_COUNT = params.getInteger("RELAY_COUNT");
-		MAX_PROPAGATION_DISTANCE = params.getInteger("MAX_PROPAGATION_DISTANCE"); //TODO: remove
+		PROBABILITY_OF_EVENT = params.getDouble("PROBABILITY_OF_EVENT"); 
+		MAX_PARTICIPANT_COUNT = params.getInteger("PARTICIPANT_COUNT");
 		TOPOLOGY = params.getString("TOPOLOGY");
 		ENVIRONMENT_DIMENSION = params.getInteger("ENVIRONMENT_DIMENSION");
 		BANDWIDTH =  params.getInteger("BANDWIDTH");
-		MAX_PROPAGATION_SPEED = params.getDouble("MAX_PROPAGATION_SPEED"); //remove
-		EVENT_SIZE = params.getDouble("PERTURBATION_SIZE"); //TODO: rename in EVENT_SIZE
+		EVENT_SIZE = params.getDouble("EVENT_SIZE");
 		DELAY_PROBABILITY = params.getDouble("DELAY_PROBABILITY"); //TODO: remove?
 		CRASH_PROBABILITY = params.getDouble("CRASH_PROBABILITY");
 		JOIN_PROBABILITY = params.getDouble("JOIN_PROBABILITY");
-		RELAY_RANGE = params.getDouble("RELAY_RANGE"); //TODO: remove
 		PROBABILITY_TO_FOLLOW = params.getDouble("PROBABILITY_TO_FOLLOW");
 		PROBABILITY_TO_BLOCK = params.getDouble("PROBABILITY_TO_BLOCK");
 		PROTOCOL_VARIANT = params.getString("PROTOCOL_VARIANT");
-		ACK_TIMEOUT = 2; //TODO: add
-		FRONTIER_TIMEOUT = 2; //TODO: add
-		NEWS_TIMEOUT = 5; //TODO: add
+		ACK_TIMEOUT = params.getInteger("ACK_TIMEOUT");
+		FRONTIER_TIMEOUT = params.getInteger("FRONTIER_TIMEOUT");
+		NEWS_TIMEOUT = params.getInteger("NEWS_TIMEOUT");
+		PROBABILTY_OF_HANDSHAKE = params.getDouble("PROBABILITY_OF_HANDSHAKE");
 	}
 }

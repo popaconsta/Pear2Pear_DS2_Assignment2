@@ -69,11 +69,10 @@ public class Participant {
 	private Map<PublicKey, List<PublicKey>> follows;
 	private Map<PublicKey, List<PublicKey>> blocks;
 	
-	private double probabilityOfHandshake = 0.8; //TODO:parametrize
-	
 	private double logPercentage;
 	private int failedConnections;
 	private int succeededConnections;
+	private int numberOfNews;
 	
 	public Participant(PublicKey id, PrivateKey privateKey, String label) {
 		super();
@@ -95,6 +94,7 @@ public class Participant {
 		blocks = new HashMap<>();
 		logPercentage = 0.0;
 		failedConnections = 0;
+		numberOfNews = 0;
 	}
 
 
@@ -106,13 +106,13 @@ public class Participant {
 	public void generateEvent() {
 		int tickCount = (int) RunEnvironment.getInstance().getCurrentSchedule().getTickCount();
 		
-		if(tickCount == 200) {
-			Options.PROBABILITY_OF_EVENT = 0;
-			Options.PROBABILITY_TO_FOLLOW = 0;
-			Options.PROBABILITY_TO_BLOCK = 0;
-			Options.JOIN_PROBABILITY = 0;
-			Options.CRASH_PROBABILITY = 0;
-		}
+//		if(tickCount == 200) {
+//			Options.PROBABILITY_OF_EVENT = 0;
+//			Options.PROBABILITY_TO_FOLLOW = 0;
+//			Options.PROBABILITY_TO_BLOCK = 0;
+//			Options.JOIN_PROBABILITY = 0;
+//			Options.CRASH_PROBABILITY = 0;
+//		}
 		
 		double coinToss = RandomHelper.nextDoubleFromTo(0, 1);
 		//Generate a broadcast with one fourth of the probability
@@ -251,7 +251,7 @@ public class Participant {
 				timeout = Options.ACK_TIMEOUT; //2 ticks to receive back frontier 
 			} else {
 				double coinToss = RandomHelper.nextDoubleFromTo(0, 1);
-				if(coinToss <= probabilityOfHandshake) {
+				if(coinToss <= Options.PROBABILTY_OF_HANDSHAKE) {
 					
 					do{//TODO: discuss -> is this a possible infinite loop?
 						currentPeer = view.getRandomPeer(); //pick a (non blocked) peer
@@ -307,6 +307,8 @@ public class Participant {
 				int eventNum = 0;
 				for(Entry<PublicKey, List<Event>> newsById : news.entrySet()) 
 					eventNum += newsById.getValue().size();
+				
+				numberOfNews = eventNum;
 				
 				int uploadTime = (int) Math.ceil((eventNum * Options.EVENT_SIZE) / Options.BANDWIDTH);		
 				
@@ -877,6 +879,14 @@ public class Participant {
 	
 	public void setSucceededConnections(int value) {
 		this.succeededConnections = value;
+	}
+	
+	public int getNumberOfNews() {
+		return this.numberOfNews;
+	}
+	
+	public void setNumberOfNews(int value) {
+		this.numberOfNews = value;
 	}
 	
 	@Override

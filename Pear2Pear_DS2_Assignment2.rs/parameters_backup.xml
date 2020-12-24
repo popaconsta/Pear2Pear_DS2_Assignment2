@@ -6,15 +6,36 @@
 						converter="repast.simphony.parameter.StringConverterFactory$StringStringConverter"
 												values="O * R | "
 											/>
+				<parameter name="NEWS_TIMEOUT" displayName="News timeout (in ticks)" type="int" 
+						defaultValue="5" 
+						isReadOnly="false" 
+						converter="repast.simphony.parameter.StringConverterFactory$IntConverter"
+											/>
 				<parameter name="CRASH_PROBABILITY" displayName="Probability of relays to crash" type="double" 
 						defaultValue="0.001" 
 						isReadOnly="false" 
 						converter="repast.simphony.parameter.StringConverterFactory$DoubleConverter"
 											/>
-				<parameter name="RELAY_COUNT" displayName="Number of relays" type="int" 
+				<parameter name="FRONTIER_TIMEOUT" displayName="Frontier timeout (in ticks)" type="int" 
+						defaultValue="2" 
+						isReadOnly="false" 
+						converter="repast.simphony.parameter.StringConverterFactory$IntConverter"
+											/>
+				<parameter name="PARTICIPANT_COUNT" displayName="Number of participants" type="int" 
 						defaultValue="41" 
 						isReadOnly="false" 
 						converter="repast.simphony.parameter.StringConverterFactory$IntConverter"
+											/>
+				<parameter name="ACK_TIMEOUT" displayName="Acknowledgments timeout (in ticks)" type="int" 
+						defaultValue="2" 
+						isReadOnly="false" 
+						converter="repast.simphony.parameter.StringConverterFactory$IntConverter"
+											/>
+				<parameter name="PROBABILITY_OF_EVENT" displayName="Probability of a new generated event per tick" type="double" 
+						defaultValue="0.01" 
+						isReadOnly="false" 
+						converter="repast.simphony.parameter.StringConverterFactory$DoubleConverter"
+												values="0.001 0.005 0.01 0.05 0.1 0.25 0.5 0.75 1.0 "
 											/>
 				<parameter name="randomSeed" displayName="Default Random Seed" type="int" 
 						defaultValue="__NULL__"
@@ -27,16 +48,6 @@
 						converter="repast.simphony.parameter.StringConverterFactory$StringStringConverter"
 												values="TRANSITIVE_INTEREST_GOSSIP OPEN_GOSSIP "
 											/>
-				<parameter name="PERTURBATION_SIZE" displayName="Size of the messages" type="double" 
-						defaultValue="0.1" 
-						isReadOnly="false" 
-						converter="repast.simphony.parameter.StringConverterFactory$DoubleConverter"
-											/>
-				<parameter name="MAX_PROPAGATION_DISTANCE" displayName="Perturbation range" type="int" 
-						defaultValue="15" 
-						isReadOnly="false" 
-						converter="repast.simphony.parameter.StringConverterFactory$IntConverter"
-											/>
 				<parameter name="PROBABILITY_TO_BLOCK" displayName="Probability to block someone new" type="double" 
 						defaultValue="0.001" 
 						isReadOnly="false" 
@@ -47,16 +58,6 @@
 						defaultValue="65" 
 						isReadOnly="false" 
 						converter="repast.simphony.parameter.StringConverterFactory$IntConverter"
-											/>
-				<parameter name="MAX_PROPAGATION_SPEED" displayName="Maximum speed of perturbation" type="double" 
-						defaultValue="1.5" 
-						isReadOnly="false" 
-						converter="repast.simphony.parameter.StringConverterFactory$DoubleConverter"
-											/>
-				<parameter name="RELAY_RANGE" displayName="Relay's range of sense" type="double" 
-						defaultValue="5.0" 
-						isReadOnly="false" 
-						converter="repast.simphony.parameter.StringConverterFactory$DoubleConverter"
 											/>
 				<parameter name="BANDWIDTH" displayName="Bandwidth of relays" type="int" 
 						defaultValue="10" 
@@ -79,11 +80,10 @@
 						converter="repast.simphony.parameter.StringConverterFactory$DoubleConverter"
 												values="0.001 0.002 0.005 0.01 "
 											/>
-				<parameter name="PROBABILITY_OF_PERTURBATION" displayName="Probability of a new perturbation per tick" type="double" 
-						defaultValue="0.25" 
+				<parameter name="EVENT_SIZE" displayName="Size of events" type="double" 
+						defaultValue="0.1" 
 						isReadOnly="false" 
 						converter="repast.simphony.parameter.StringConverterFactory$DoubleConverter"
-												values="0.001 0.005 0.01 0.05 0.1 0.25 0.5 0.75 1.0 "
 											/>
 		</parameters>
 
