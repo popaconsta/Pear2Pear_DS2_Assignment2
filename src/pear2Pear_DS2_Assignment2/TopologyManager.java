@@ -11,6 +11,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 
 import javax.print.attribute.HashAttributeSet;
 
+import Utils.DataCollector;
 import Utils.Options;
 import agents.Participant;
 import agents.View;
@@ -40,6 +41,8 @@ public class TopologyManager {
 	private static CopyOnWriteArrayList<Participant> currentParticipants;
 	private static Map<PublicKey, Participant> allTimeParticipants;
 	private static Map<PublicKey, Integer> globalFrontier;
+	private static int overallFailedConnections;
+	private static int overallSucceededConnections;
 
     // static method to initialize the topology manager
     public static void initialize(Context<Object> ctx) { 
@@ -47,6 +50,8 @@ public class TopologyManager {
     	availableLocations = new ArrayList<>(); //instantiate the list
     	currentParticipants = new CopyOnWriteArrayList<Participant>();
     	allTimeParticipants = new HashMap<>();
+    	overallFailedConnections = 0;
+    	overallSucceededConnections = 0;
     	
     	context = ctx;
     	
@@ -283,6 +288,19 @@ public class TopologyManager {
 		 for(Participant p : currentParticipants) {
 			 p.calcLocalMissingUpdateRatio(globalFrontier);
 		 }
+	}
+	
+	@ScheduledMethod(start = 1, interval = 1)
+	public static void calcOverallConnections() {
+		for(Participant p : currentParticipants) {
+			if(p.getFailedConnections() > 0) {
+				overallFailedConnections += p.getFailedConnections();
+				p.setFailedConnections(0);
+				overallSucceededConnections += p.getSucceededConnections();
+				p.setSucceededConnections(0);
+			}
+		}
+		DataCollector.saveConnections(overallSucceededConnections, overallFailedConnections, RunEnvironment.getInstance().getCurrentSchedule().getTickCount());
 	}
 	
 	

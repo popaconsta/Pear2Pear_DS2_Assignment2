@@ -69,9 +69,11 @@ public class Participant {
 	private Map<PublicKey, List<PublicKey>> follows;
 	private Map<PublicKey, List<PublicKey>> blocks;
 	
-	private double probabilityOfHandshake = 0.2; //TODO:parametrize
+	private double probabilityOfHandshake = 0.8; //TODO:parametrize
 	
 	private double logPercentage;
+	private int failedConnections;
+	private int succeededConnections;
 	
 	public Participant(PublicKey id, PrivateKey privateKey, String label) {
 		super();
@@ -92,6 +94,7 @@ public class Participant {
 		follows = new HashMap<>();
 		blocks = new HashMap<>();
 		logPercentage = 0.0;
+		failedConnections = 0;
 	}
 
 
@@ -272,6 +275,7 @@ public class Participant {
 			state = State.AVAILABLE;
 			handshakeSYNs.clear();
 			handshakeSYNs.clear();
+			failedConnections = failedConnections + 1;
 		} else if(state == State.SYN_SENT || state == State.SYN_RECEIVED) {
 			timeout--;
 			if(establishConnection()) {
@@ -283,6 +287,7 @@ public class Participant {
 				handshakeSYNs.clear();
 				handshakeACKs.clear();
 				timeout = Options.FRONTIER_TIMEOUT; 
+				succeededConnections = succeededConnections + 1;
 			}
 		} else if(state == State.CONN_ESTABLISHED) {
 			timeout--;
@@ -856,6 +861,22 @@ public class Participant {
 	
 	public PublicKey getId() {
 		return id;
+	}
+	
+	public int getFailedConnections() {
+		return failedConnections;
+	}
+	
+	public void setFailedConnections(int value) {
+		this.failedConnections = value;
+	}
+	
+	public int getSucceededConnections() {
+		return succeededConnections;
+	}
+	
+	public void setSucceededConnections(int value) {
+		this.succeededConnections = value;
 	}
 	
 	@Override

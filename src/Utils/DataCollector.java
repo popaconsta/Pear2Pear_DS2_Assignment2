@@ -11,14 +11,14 @@ import communication.*;
 public class DataCollector {
 
 	public static void clearFiles() {
-//		try {
-//			//clear LatencySender
-//			FileWriter fw = new FileWriter("LatencySender.csv", false);
-//			PrintWriter pw = new PrintWriter(fw, false);
-//			pw.write("Source;Reference;Payload;Tick" + '\n');
-//	        pw.flush();
-//	        pw.close();
-//	        fw.close();
+		try {
+			//clear FailedConnections
+			FileWriter fw = new FileWriter("Connections.csv", false);
+			PrintWriter pw = new PrintWriter(fw, false);
+			pw.write("SConnections;FConnections;Tick" + '\n');
+	        pw.flush();
+	        pw.close();
+	        fw.close();
 //	        
 //	        //clear LatencyReceiver
 //	        FileWriter fw2 = new FileWriter("LatencyReceiver.csv", false);
@@ -38,9 +38,21 @@ public class DataCollector {
 //	        pw3.close();
 //	        fw3.close();
 //	        
-//		} catch (Exception e) {
-//			e.printStackTrace();
-//		}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+	
+	public static void saveConnections(int succeededConnections, int failedConnections, double tick) {
+		CSVWriter writer;
+		try {
+			writer = new CSVWriter(new FileWriter("Connections.csv", true), ';', '\0');
+			String[] entries = {succeededConnections + "", failedConnections + "", tick + ""};
+			writer.writeNext(entries);
+			writer.close();
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
 	}
 	
 	
