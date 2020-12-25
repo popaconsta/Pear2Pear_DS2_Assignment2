@@ -45,6 +45,8 @@ public class TopologyManager {
 	private static int overallSucceededConnections;
 	private static int overallNumberOfNews;
 	private static int overallSummationNews;
+	private static double overallPercentage;
+	private static int updatedNodes;
 
     // static method to initialize the topology manager
     public static void initialize(Context<Object> ctx) { 
@@ -56,6 +58,8 @@ public class TopologyManager {
     	overallSucceededConnections = 0;
     	overallNumberOfNews = 0;
     	overallSummationNews = 0;
+    	overallPercentage = 0;
+    	updatedNodes = 0;
     	
     	context = ctx;
     	
@@ -300,15 +304,15 @@ public class TopologyManager {
 		double tick = RunEnvironment.getInstance().getCurrentSchedule().getTickCount();
 		
 		//Saving failed and successfull connections
-		for(Participant p : currentParticipants) {
-			if(p.getFailedConnections() > 0) {
-				overallFailedConnections += p.getFailedConnections();
-				p.setFailedConnections(0);
-				overallSucceededConnections += p.getSucceededConnections();
-				p.setSucceededConnections(0);
-			}
-		}
-		DataCollector.saveConnections(overallSucceededConnections, overallFailedConnections, tick);
+//		for(Participant p : currentParticipants) {
+//			if(p.getFailedConnections() > 0) {
+//				overallFailedConnections += p.getFailedConnections();
+//				p.setFailedConnections(0);
+//				overallSucceededConnections += p.getSucceededConnections();
+//				p.setSucceededConnections(0);
+//			}
+//		}
+//		DataCollector.saveConnections(overallSucceededConnections, overallFailedConnections, tick);
 		
 		//Saving number of participants
 //		DataCollector.saveNumberOfParticipants(currentPeerNum, tick);
@@ -332,6 +336,40 @@ public class TopologyManager {
 //		double freeBandwidth = ((Options.BANDWIDTH * currentPeerNum) - (overallNumberOfNews * Options.EVENT_SIZE)) / currentPeerNum;
 //		DataCollector.saveFreeBandwidth(freeBandwidth, tick);
 //		overallNumberOfNews = 0;
+		
+		//Saving convergence
+//		if(tick % 25 == 0 || tick > 998) {
+//			for(Participant p: currentParticipants) {
+//				overallPercentage += p.getPercentageValue();
+//			}
+//			overallPercentage = overallPercentage / currentPeerNum;
+//			DataCollector.saveLogPercentage(overallPercentage, tick);
+//			overallPercentage = 0;
+//		}
+		
+		//Save latency
+//		Options.PROBABILITY_OF_EVENT = 0;
+//		Options.PROBABILITY_TO_FOLLOW = 0;
+//		Options.PROBABILITY_TO_BLOCK = 0;
+//		Options.JOIN_PROBABILITY = 0;
+//		Options.CRASH_PROBABILITY = 0;
+//		
+//		Participant tempParticipant = null;
+//		
+//		for(Participant p: currentParticipants) {
+//			if(p.getLabel().equals("0"))
+//				tempParticipant = p;
+//		}
+//		
+//		for(Participant p: currentParticipants) {
+//			if(p.hasLatencyEvent(tempParticipant)) {
+//				updatedNodes++;
+//			}
+//		}
+//		
+//		DataCollector.saveLatency(updatedNodes, tick);
+//		updatedNodes = 0;
+		
 	}
 	
 	

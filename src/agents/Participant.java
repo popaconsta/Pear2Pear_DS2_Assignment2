@@ -114,6 +114,11 @@ public class Participant {
 //			Options.CRASH_PROBABILITY = 0;
 //		}
 		
+		//FOR DATA COLLECTION
+//		if(label.equals("0") && tickCount < 2) {
+//			appendToLog(new String("LATENCY"));
+//		}
+		
 		double coinToss = RandomHelper.nextDoubleFromTo(0, 1);
 		//Generate a broadcast with one fourth of the probability
 		if(coinToss <= Options.PROBABILITY_OF_EVENT) { //propagate a value broadcast perturbation	
@@ -218,10 +223,10 @@ public class Participant {
 					
 				
 				//Line 4 of algorithm
-//				if(blocks.containsKey(currentPeer.getId()))
-//					for(PublicKey blocked : blocks.get(currentPeer.getId())) 
-//						if(getStoreIds().contains(blocked) && follows.containsKey(this.id) && !follows.get(this.id).contains(blocked))
-//							removeLogFromStore(blocked);
+				if(blocks.containsKey(currentPeer.getId()))
+					for(PublicKey blocked : blocks.get(currentPeer.getId())) 
+						if(getStoreIds().contains(blocked) && follows.containsKey(this.id) && !follows.get(this.id).contains(blocked))
+							removeLogFromStore(blocked);
 				
 				//Filter out blocked participants fron news
 				Iterator<Entry<PublicKey, List<Event>>> itr = peerNews.entrySet().iterator();
@@ -889,6 +894,10 @@ public class Participant {
 		this.numberOfNews = value;
 	}
 	
+	public double getPercentageValue() {
+		return logPercentage;
+	}
+	
 	@Override
 	public boolean equals(Object obj) { 
         if (obj == this) { 
@@ -911,6 +920,10 @@ public class Participant {
 	
 	public boolean isCrashed() {
 		return crashed;
+	}
+	
+	public boolean hasLatencyEvent(Participant p) {
+		return this.store.containsKey(p.getId());
 	}
 	
 	

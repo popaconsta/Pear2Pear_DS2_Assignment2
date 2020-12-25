@@ -45,9 +45,28 @@ public class DataCollector {
 	        pw4.flush();
 	        pw4.close();
 	        fw4.close();
+//	        
+	      //clear LogPercentage
+	        FileWriter fw5 = new FileWriter("LogPercentage.csv", false);
+			PrintWriter pw5 = new PrintWriter(fw5, false);
+			pw5.write("Value;Tick" + '\n');
+	        pw5.flush();
+	        pw5.close();
+	        fw5.close();
+//	        
+	      //clear Latency
+	        FileWriter fw6 = new FileWriter("Latency.csv", false);
+			PrintWriter pw6 = new PrintWriter(fw6, false);
+			pw6.write("Nodes;Tick" + '\n');
+	        pw6.flush();
+	        pw6.close();
+	        fw6.close();
+	        
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
+		
+		
 	}
 	
 	public static void saveConnections(int succeededConnections, int failedConnections, double tick) {
@@ -91,6 +110,30 @@ public class DataCollector {
 		try {
 			writer = new CSVWriter(new FileWriter("FreeBandwidth.csv", true), ';', '\0');
 			String[] entries = {freeBandwidth + "", tick + ""};
+			writer.writeNext(entries);
+			writer.close();
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+	
+	public static void saveLogPercentage(double percentage, double tick) {
+		CSVWriter writer;
+		try {
+			writer = new CSVWriter(new FileWriter("LogPercentage.csv", true), ';', '\0');
+			String[] entries = {percentage + "", tick + ""};
+			writer.writeNext(entries);
+			writer.close();
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+	
+	public static void saveLatency(int nodesNum, double tick) {
+		CSVWriter writer;
+		try {
+			writer = new CSVWriter(new FileWriter("Latency.csv", true), ';', '\0');
+			String[] entries = {nodesNum + "", tick + ""};
 			writer.writeNext(entries);
 			writer.close();
 		} catch (Exception e) {
