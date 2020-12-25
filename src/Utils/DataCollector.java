@@ -33,7 +33,7 @@ public class DataCollector {
 //	        //clear NumberOfNews
 	        FileWriter fw3 = new FileWriter("NumberOfNews.csv", false);
 			PrintWriter pw3 = new PrintWriter(fw3, false);
-			pw3.write("News;Summation;Tick" + '\n');
+			pw3.write("News;Edges;Summation;Tick" + '\n');
 	        pw3.flush();
 	        pw3.close();
 	        fw3.close();
@@ -93,11 +93,11 @@ public class DataCollector {
 		}
 	}
 	
-	public static void saveNumberOfNews(int news, int summation, double tick) {
+	public static void saveNumberOfNews(int news, int edges, int summation, double tick) {
 		CSVWriter writer;
 		try {
 			writer = new CSVWriter(new FileWriter("NumberOfNews.csv", true), ';', '\0');
-			String[] entries = {news + "", summation + "", tick + ""};
+			String[] entries = {news + "", edges + "", summation + "", tick + ""};
 			writer.writeNext(entries);
 			writer.close();
 		} catch (Exception e) {

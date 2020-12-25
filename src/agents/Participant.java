@@ -73,6 +73,7 @@ public class Participant {
 	private int failedConnections;
 	private int succeededConnections;
 	private int numberOfNews;
+	private int isSending;
 	
 	public Participant(PublicKey id, PrivateKey privateKey, String label) {
 		super();
@@ -95,6 +96,7 @@ public class Participant {
 		logPercentage = 0.0;
 		failedConnections = 0;
 		numberOfNews = 0;
+		isSending = 0;
 	}
 
 
@@ -315,6 +317,9 @@ public class Participant {
 				
 				numberOfNews = eventNum;
 				
+				if(eventNum > 0)
+					isSending = 1;
+				
 				int uploadTime = (int) Math.ceil((eventNum * Options.EVENT_SIZE) / Options.BANDWIDTH);		
 				
 //				new Schedule()
@@ -346,7 +351,7 @@ public class Participant {
 		} else if(state == State.FINISHED) {
 			peerFrontier = null;
 			peerNews = null;
-			
+			isSending = 0;
 			System.out.println("Connection closed to " + currentPeer.getLabel() 
 				+ ", current status: store = " + store.size() );
 			
@@ -896,6 +901,10 @@ public class Participant {
 	
 	public double getPercentageValue() {
 		return logPercentage;
+	}
+	
+	public int getIsSending() {
+		return isSending;
 	}
 	
 	@Override

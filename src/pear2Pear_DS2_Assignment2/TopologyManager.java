@@ -47,6 +47,7 @@ public class TopologyManager {
 	private static int overallSummationNews;
 	private static double overallPercentage;
 	private static int updatedNodes;
+	private static int overallNumberOfEdges;
 
     // static method to initialize the topology manager
     public static void initialize(Context<Object> ctx) { 
@@ -60,6 +61,7 @@ public class TopologyManager {
     	overallSummationNews = 0;
     	overallPercentage = 0;
     	updatedNodes = 0;
+    	overallNumberOfEdges = 0;
     	
     	context = ctx;
     	
@@ -320,12 +322,14 @@ public class TopologyManager {
 		//Saving number of news
 //		for(Participant p: currentParticipants) {
 //			overallNumberOfNews += p.getNumberOfNews();
+//			overallNumberOfEdges += p.getIsSending();
 //			p.setNumberOfNews(0);
 //		}
 //		
 //		overallSummationNews += overallNumberOfNews;
-//		DataCollector.saveNumberOfNews(overallNumberOfNews, overallSummationNews, tick);
+//		DataCollector.saveNumberOfNews(overallNumberOfNews, overallNumberOfEdges, overallSummationNews, tick);
 //		overallNumberOfNews = 0;
+//		overallNumberOfEdges = 0;
 		
 		//Saving free bandwidth
 //		for(Participant p: currentParticipants) {
