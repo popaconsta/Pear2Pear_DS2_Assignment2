@@ -108,7 +108,8 @@ public class Participant {
 	public void generateEvent() {
 		int tickCount = (int) RunEnvironment.getInstance().getCurrentSchedule().getTickCount();
 		
-//		if(tickCount == 200) {
+		//FOR DATA COLLECTION
+//		if(tickCount == 1800) {
 //			Options.PROBABILITY_OF_EVENT = 0;
 //			Options.PROBABILITY_TO_FOLLOW = 0;
 //			Options.PROBABILITY_TO_BLOCK = 0;
