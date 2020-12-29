@@ -11,11 +11,15 @@ public class Handshake {
 	private int type;
 	private Participant peer;
 	
+	/*
+	 * Handshake messages using while connection is established
+	 */
+	
 	public Handshake(int sentAt, int type, Participant peer) {
 		super();
-		this.sentAt = sentAt;
-		this.type = type;
-		this.peer = peer;
+		this.sentAt = sentAt; //tick when it was sent
+		this.type = type; //0 1 or 2
+		this.peer = peer; //who sent the handshake msg
 	}
 
 	public int getSentAt() {

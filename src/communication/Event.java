@@ -64,6 +64,7 @@ public class Event {
 	}
 	
 	public byte[] computeDigest() {
+		//transform event to stream of bytes
 		ByteArrayOutputStream eventStream = new ByteArrayOutputStream();
 		try {
 			eventStream.write(id.toString().getBytes());
@@ -74,7 +75,7 @@ public class Event {
 			e.printStackTrace();
 		}
 
-
+		//compute the SHA-256 message digest 
 		MessageDigest md;
 		byte[] digest = null;
 		try {

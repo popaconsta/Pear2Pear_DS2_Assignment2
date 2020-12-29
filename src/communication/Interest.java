@@ -2,6 +2,10 @@ package communication;
 
 import java.security.PublicKey;
 
+
+/*
+ * Useful object for representing interest/disinterest for a participant
+ */
 public class Interest {
 	
 	public static enum Type {

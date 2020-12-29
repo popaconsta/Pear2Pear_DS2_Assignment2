@@ -34,20 +34,20 @@ import security.KeyManager;
 public class TopologyManager {
 	
 	private static List<NdPoint> availableLocations = null; //available locations i.e crashed nodes locations
-	private static ContinuousSpace<Object> space = null; //the space where relays are placed
+	private static ContinuousSpace<Object> space = null; //the space where participants are placed
 	private static Context<Object> context; //simulation context
-	private static int nextId; //next available relay id
-	private static int currentPeerNum; //currently alive relays
-	private static CopyOnWriteArrayList<Participant> currentParticipants;
-	private static Map<PublicKey, Participant> allTimeParticipants;
+	private static int nextId; //next available participant id
+	private static int currentPeerNum; //currently alive participants number
+	private static CopyOnWriteArrayList<Participant> currentParticipants; //list of alive participants
+	private static Map<PublicKey, Participant> allTimeParticipants; // list of participants that have been alive during simulaion
 	private static Map<PublicKey, Integer> globalFrontier;
-	private static int overallFailedConnections;
-	private static int overallSucceededConnections;
-	private static int overallNumberOfNews;
-	private static int overallSummationNews;
-	private static double overallPercentage;
-	private static int updatedNodes;
-	private static int overallNumberOfEdges;
+//	private static int overallFailedConnections;
+//	private static int overallSucceededConnections;
+//	private static int overallNumberOfNews;
+//	private static int overallSummationNews;
+//	private static double overallPercentage;
+//	private static int updatedNodes;
+//	private static int overallNumberOfEdges;
 
     // static method to initialize the topology manager
     public static void initialize(Context<Object> ctx) { 
@@ -55,17 +55,17 @@ public class TopologyManager {
     	availableLocations = new ArrayList<>(); //instantiate the list
     	currentParticipants = new CopyOnWriteArrayList<Participant>();
     	allTimeParticipants = new HashMap<>();
-    	overallFailedConnections = 0;
-    	overallSucceededConnections = 0;
-    	overallNumberOfNews = 0;
-    	overallSummationNews = 0;
-    	overallPercentage = 0;
-    	updatedNodes = 0;
-    	overallNumberOfEdges = 0;
+//    	overallFailedConnections = 0;
+//    	overallSucceededConnections = 0;
+//    	overallNumberOfNews = 0;
+//    	overallSummationNews = 0;
+//    	overallPercentage = 0;
+//    	updatedNodes = 0;
+//    	overallNumberOfEdges = 0;
     	
     	context = ctx;
     	
-    	//Prepare the space for the relays
+    	//Prepare the space for the participants
 		ContinuousSpaceFactory spaceFactory =
 				ContinuousSpaceFactoryFinder.createContinuousSpaceFactory(null);
 		
@@ -94,7 +94,7 @@ public class TopologyManager {
 					);
 		}
 		
-		//Create and add the relays to the space
+		//Create and add the participants to the space
 		for (int i = 0; i < Options.MAX_PARTICIPANT_COUNT; i++) {
 			Participant p = new Participant(KeyManager.PUBLIC_KEYS.get(i), KeyManager.PRIVATE_KEYS.get(i), Integer.toString(i));
 			currentParticipants.add(p);
@@ -108,15 +108,17 @@ public class TopologyManager {
 				view.add(currentParticipants.get((i + j + 1) % Options.MAX_PARTICIPANT_COUNT), 0);
 			currentParticipants.get(i).setView(view);
 		}
-    	nextId = Options.MAX_PARTICIPANT_COUNT; //initially the next id is the initial amount of relays
+    	nextId = Options.MAX_PARTICIPANT_COUNT; //initially the next id is the initial amount of participants
     	currentPeerNum = Options.MAX_PARTICIPANT_COUNT;
      
     }
     
+    // Translate id to label
     public static Participant getParticipantById(PublicKey id) {
     	return allTimeParticipants.get(id);
     }
 	
+    
 	public static void removeParticipant(Participant participant) {
 		availableLocations.add(space.getLocation(participant)); //mark the location of the crashed node as available
 		currentPeerNum--;
@@ -136,7 +138,7 @@ public class TopologyManager {
 		for(RepastEdge<Object> edge : edges) {
 			net.removeEdge(edge);
 		}
-		//Finally remove the relay
+		//Finally remove the participant
 		context.remove(participant);
 		
 	}
@@ -156,11 +158,11 @@ public class TopologyManager {
 	}
 	
 	/*
-	 * Since each relay has a given probability of crashing, the expected
-	 * value of crashed relay per tick is equal to relay_number * prob_crash
+	 * Since each participant has a given probability of crashing, the expected
+	 * value of crashed relay per tick is equal to participant_number * prob_crash
 	 * In order to compensate the number of crashed relays, we need to run
 	 * this method a number of times, each time having a small probability
-	 * to add a new relay to the context.
+	 * to add a new participant to the context.
 	 */
 	@ScheduledMethod(start = 1, interval = 1)
 	public static void addNewParticipants() {
@@ -185,6 +187,7 @@ public class TopologyManager {
 				KeyManager.generateKeys(nextId);
 				System.out.println("Participant(" + nextId + ") is joining the context");
 				
+				//Prepare participant view
 				View view = new View(Integer.toString(nextId), currentPeerNum);
 				List<Participant> randomPeers = new ArrayList<>(currentParticipants);
 				Collections.shuffle(randomPeers);
@@ -195,7 +198,7 @@ public class TopologyManager {
 						view.add(p, tickCount);
 				}
 				
-				//Place the new relay in the context
+				//Place the new participant in the context
 				Participant participant = new Participant(
 						KeyManager.PUBLIC_KEYS.get(nextId), KeyManager.PRIVATE_KEYS.get(nextId), Integer.toString(nextId));
 				participant.setView(view);
@@ -211,7 +214,7 @@ public class TopologyManager {
 		}
 	}
 	
-	//Position the relays in a structured way, in order to form a specific topology
+	//Position the participants in a structured way, in order to form a specific topology
 	public static void buildTopology() {
 		int n = Options.MAX_PARTICIPANT_COUNT;
 		String topology = Options.TOPOLOGY;
@@ -223,7 +226,7 @@ public class TopologyManager {
 			int k = 0; //counter
 			
 			for (Object obj : context) {
-				//Calculate coordinates for each relay position
+				//Calculate coordinates for each participant position
 				double x = radius * Math.cos((k * 2 * Math.PI) / n) + offset;
 				double y = radius * Math.sin((k * 2 * Math.PI) / n) + offset;
 				space.moveTo(obj, x, y);
@@ -244,16 +247,16 @@ public class TopologyManager {
 			
 			double interval = (Options.ENVIRONMENT_DIMENSION * 0.45) / layerNum;
 			for (Object obj : context) {
-				//125 is the maximum amount of relays that can be used during simulation
+				//125 is the maximum amount of participant that can be used during simulation
 
 				double layerSize = 4 * layer;
 				
-				if(layer == 0) { //This is the (first) central relay
+				if(layer == 0) { //This is the (first) central peer
 					double centerX = Options.ENVIRONMENT_DIMENSION / 2;
 					double centerY = Options.ENVIRONMENT_DIMENSION / 2;
 					space.moveTo(obj, centerX, centerY);
 					layer++;
-				} else { //all the other relays follow this rule
+				} else { //all the other participants follow this rule
 					double radius = interval * layer;
 					
 					double x = radius * Math.cos((k * 2 * Math.PI) / layerSize) + offset;
@@ -268,9 +271,9 @@ public class TopologyManager {
 				}
 			}
 		} else if(topology.compareTo("|") == 0) { // Line topology
-			double interval = (Options.ENVIRONMENT_DIMENSION * 0.9) / (n-1); //distance adjacent relays
+			double interval = (Options.ENVIRONMENT_DIMENSION * 0.9) / (n-1); //distance adjacent participants
 			double y = Options.ENVIRONMENT_DIMENSION / 2;
-			double start = (Options.ENVIRONMENT_DIMENSION - ((n-1) * interval)) / 2; //position of first relay
+			double start = (Options.ENVIRONMENT_DIMENSION - ((n-1) * interval)) / 2; //position of first participant
 			
 			int k = 0;
 			
@@ -284,6 +287,7 @@ public class TopologyManager {
 		}
 	}
 	
+	// Method to calculate how many updates are needed to reach 100% completion
 	@ScheduledMethod(start = 0, interval = 25)
 	public static void calcMissingUpdateRatio() {
 		
@@ -381,7 +385,7 @@ public class TopologyManager {
 		return space;
 	}
 	
-	public static int getCurrentRelayNum() {
+	public static int getCurrentParticipantNum() {
 		return currentPeerNum;
 	}
 	

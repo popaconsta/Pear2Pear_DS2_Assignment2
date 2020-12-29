@@ -38,9 +38,6 @@ public class DemoBuilder implements ContextBuilder<Object> {
 		//Load the parameters
 		Options.load();
 		
-		//Clearing files
-		DataCollector.clearFiles();
-		
 		/*
 		 * This network is used for visualizing the connection between 
 		 * participants who attempt handshakes with each other. 

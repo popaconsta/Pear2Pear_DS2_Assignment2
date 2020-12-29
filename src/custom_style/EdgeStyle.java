@@ -13,6 +13,13 @@ public class EdgeStyle extends DefaultEdgeStyleOGL2D{
 		Participant source = (Participant) edge.getSource();
 		Participant target = (Participant) edge.getTarget();
 		
+		/*
+		 * different states a connection goes through:
+		 * red links:Participant A has just sent a handshake request to the other participant
+		 * orange links:Participant B has chosen Participant A among the available requests and replied withSYN-ACK
+		 * green links:  both participants agreed to exchange news and the connection is now established.
+		 */
+		
 		if((source.getState() == State.SYN_SENT && source.getCurrentPeer().equals(target))
 				|| (target.getState() == State.SYN_SENT && target.getCurrentPeer().equals(source))) {
 			

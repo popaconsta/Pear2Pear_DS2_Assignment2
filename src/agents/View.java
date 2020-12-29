@@ -14,9 +14,9 @@ import java.util.concurrent.ThreadLocalRandom;
  */
 public class View extends ArrayList<Participant> {
 	
-	private String ownerLabel;
-    private int maxSize;
-    private Map<PublicKey, Integer> lastSeen;
+	private String ownerLabel; //label of the participants who owns this view
+    private int maxSize; //max number of participans in the view
+    private Map<PublicKey, Integer> lastSeen; //dictionary with timestamps with last seen tick per participant
 
     public View(String ownerLabel, int size){
     	this.ownerLabel = ownerLabel;
@@ -45,10 +45,16 @@ public class View extends ArrayList<Participant> {
         return r;
     }
 
+    /*
+     * latest seen participant
+     */
     public Participant getYoungest() {
         return get(size() - 1);
     }
 
+    /*
+     * oldest seen participant
+     */
     public Participant getOldest() {
         return get(0);
     }
@@ -58,6 +64,9 @@ public class View extends ArrayList<Participant> {
     	lastSeen.put(id, currentTick);
     }
     
+    /*
+     * remove participants that have'n been seen for a long time
+     */
     public void cleanUp(Integer currentTick, String viewOwner) {
     	Iterator<Participant> itr = this.iterator();
     	while(itr.hasNext()){

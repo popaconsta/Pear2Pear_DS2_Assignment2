@@ -5,11 +5,22 @@ import java.awt.Font;
 
 import org.apache.poi.hssf.util.HSSFColor.GREEN;
 
-import agents.DiscretePropagation;
 import agents.Participant;
 import agents.Participant.State;
 import repast.simphony.visualizationOGL2D.DefaultStyleOGL2D;
 import saf.v3d.scene.Position;
+
+/*
+ * green dots:  these are the available participants.  They are not involved in any communication, 
+ * so they are soon going to either initiate a handshake procedure or accept an incoming request, 
+ * if there are any available;
+ * 
+ * orange dots:  participants who are involved in a handshake procedure, 
+ * but the connection has still to be established; 
+ * 
+ * red dots:  participants that are busy as the connection has been established and
+ * they are exchanging news with another peer.
+ */
 
 public class ParticipantStyle extends DefaultStyleOGL2D{
 	@Override
