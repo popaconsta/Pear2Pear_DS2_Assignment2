@@ -1,5 +1,5 @@
 # Pear2Pear_DS2_Assignment2
-This is Assignment 2 of the Distributed System 2, DISI, University of Trento, A.Y. 2020/2021. Here, you can find the Java source of the *Gossiping with Append-Only Logs in Secure-Scuttlebutt* implementation in Repast Simphony and [the report](https://drive.google.com/file/d/18h-z-wE7FUcDconDh1ONEgS7HWcg9uot/view?usp=sharing) LINK MISSING containing the description of the work that has been done, technical details and performance analysis.
+This is Assignment 2 of the Distributed System 2, DISI, University of Trento, A.Y. 2020/2021. Here, you can find the Java source of the *Gossiping with Append-Only Logs in Secure-Scuttlebutt* implementation in Repast Simphony and [the report](https://drive.google.com/file/d/1xI0loQpq0ddQeZzMIni7VBG8ACD8YgAI/view?usp=sharing) LINK MISSING containing the description of the work that has been done, technical details and performance analysis.
 
 ## Students
 - Constantin Popa [211986] , constantin.popa@studenti.unitn.it
